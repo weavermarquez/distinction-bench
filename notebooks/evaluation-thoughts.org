@@ -1,0 +1,87 @@
+#+title: Evaluations
+
+* Thoughts: Create an Eval Suite for Laws of Form and House of Bao
+** Laws of Form | Calculus of Indications
+The original. 50 years old.
+*** Dialects / Representations
+- Explicit NOR()
+- Parens Notation
+- Ordered Pairs
+
+Iconic Representation
+- /parens forms/
+- S. B. /cross/
+- /distinction networks/
+- bricken-proposed visual dialects
+
+Hybrid
+- /annotated parens/. Added labels, null token, unwritten cross
+
+Symbolic Representations
+- =PUT= /functions/
+- =contains= /relations/
+- /ordered pairs/
+
+?
+- Restricted Predicate Calculus
+*** Arithmetic
+**** eval: Evaluate Form
+Context: Axioms
+Prompt: Arithmetic Form
+Target: Evaluated Value {mark, unmark}
+
+**** Spencer-Brown Initials
+- I1 :: Number :: ()() = ()
+  condense / confirm
+- I2 :: Order :: (()) = void
+  cancel / compensate
+  
+*** Algebra
+I think we need to avoid dealing with the Algebra for v0. 
+
+**** eval: Evaluate void-equivalent forms (tautologies and contradictions)
+Prompt: Algebraic Form
+Target: {tautology, contradiction, evaluable}
+
+**** eval: Evaluate Equivalence
+Prompt: Two Algebraic Forms
+Target: {Equivalent, Not Equivalent}
+
+**** Spencer-Brown Initials
+- J1 :: Position :: ((p)p) = void
+  take out / put in
+- J2 :: Transposition :: ((pr)(qr)) = ((p)(q))r
+  collect / distribute
+**** Bricken Initials
+- B1 :: Wrap :: a = ((a))
+  wrap / unwrap
+- B2 :: Delete :: () a = ()
+  delete / undelete
+- B3 :: Copy :: a(b) = a(ab)
+  copy / uncopy
+** Boolean Arithmetic
+This will serve as our control for Laws of Form's Arithmetic.
+*** Arithmetic
+Context: Axioms
+Prompt: Arithmetic Value {Expression E}
+Target: Evaluated Value {mark, unmark}
+
+*** Algebra
+** Conventional Arithmetic
+Probably serves as a control vs. Unit-Ensemble Arithmetic and James Algebra? Technically has ZF axioms or such, but not necessary.
+
+** Unit-Ensemble Arithmetic
+The ancient, ubiquitous expression of arithmetic.
+
+PUT
+group
+merge
+** James Algebra
+Logic defined in House of Bao's axioms, but I haven't quite done Evaluations, only algebraic transformations.
+
+** COMMENT Consider for v2 or as "future research directions"
+*** Linear Combinators?
+*** Knot Theory
+This is an iconic
+*** BF Calculus
+An extension to the Calculus of Indications; modifies an axiom to cancel in four nests, rather than two.
