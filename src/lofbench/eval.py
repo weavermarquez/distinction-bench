@@ -67,12 +67,12 @@ Two nested boundaries annihilate to void: (()) = void
 
 For each expression, reduce it and determine if it's marked or unmarked.
 
-<answer>
-E1: marked/unmarked
-E2: marked/unmarked
-...
-total_marked: N
-</answer>
+Respond with a JSON object containing your answers. Use exactly this format:
+```json
+{{"E1": "marked", "E2": "unmarked", ..., "total_marked": N}}
+```
+
+Where each E# is either "marked" or "unmarked", and total_marked is the count of marked expressions.
 """
 
 
@@ -102,23 +102,56 @@ def extract_answer(response: str | None) -> str:
     return "unknown"
 
 
-def extract_composite_answer(response: str | None, n: int) -> int:
-    """Extract the count from LLM response. Returns -1 if unparseable."""
+def extract_composite_answer(response: str | None, n: int) -> dict:
+    """
+    Extract composite answer from LLM response.
+
+    Returns dict with:
+        - "items": list of "marked"/"unmarked"/"unknown" for each item
+        - "total_marked": int or -1 if unparseable
+    """
+    empty = {"items": ["unknown"] * n, "total_marked": -1}
     if response is None:
-        return -1
+        return empty
 
-    pattern = r'<answer>.*?total_marked:\s*(\d+).*?</answer>'
-    match = re.search(pattern, response, re.IGNORECASE | re.DOTALL)
+    # Try to find JSON in the response
+    # Look for ```json ... ``` or just { ... }
+    json_match = re.search(r'```json\s*(\{.*?\})\s*```', response, re.DOTALL)
+    if not json_match:
+        json_match = re.search(r'(\{[^{}]*"E1"[^{}]*\})', response, re.DOTALL)
+
+    if json_match:
+        try:
+            data = json.loads(json_match.group(1))
+            items = []
+            for i in range(1, n + 1):
+                key = f"E{i}"
+                val = data.get(key, "unknown")
+                if isinstance(val, str):
+                    val = val.lower()
+                    if val in ("marked", "()"):
+                        items.append("marked")
+                    elif val in ("unmarked", "void"):
+                        items.append("unmarked")
+                    else:
+                        items.append("unknown")
+                else:
+                    items.append("unknown")
+            total = data.get("total_marked", -1)
+            if not isinstance(total, int) or total < 0 or total > n:
+                total = -1
+            return {"items": items, "total_marked": total}
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Fallback: try to extract total_marked from text
+    match = re.search(r'total_marked["\s:]+(\d+)', response, re.IGNORECASE)
     if match:
-        val = int(match.group(1))
-        return val if 0 <= val <= n else -1
+        total = int(match.group(1))
+        if 0 <= total <= n:
+            return {"items": ["unknown"] * n, "total_marked": total}
 
-    match = re.search(r'(?:count|total)[_:\s]+(\d+)', response, re.IGNORECASE)
-    if match:
-        val = int(match.group(1))
-        return val if 0 <= val <= n else -1
-
-    return -1
+    return empty
 
 
 # =============================================================================
@@ -164,26 +197,44 @@ class CompositeTask:
         return COMPOSITE_PROMPT_TEMPLATE.format(expressions="\n".join(lines))
 
     @staticmethod
-    def extract(response: str, case: dict) -> int:
+    def extract(response: str, case: dict) -> dict:
         return extract_composite_answer(response, case["group_size"])
 
     @staticmethod
-    def is_correct(answer: int, case: dict) -> bool:
-        return answer == case["count"]
+    def make_result(case: dict, provider: str, model: str, response: str, answer: dict) -> dict:
+        # Convert targets to "marked"/"unmarked" format
+        target_items = ["marked" if t == "()" else "unmarked" for t in case["targets"]]
+        extracted_items = answer["items"]
 
-    @staticmethod
-    def make_result(case: dict, provider: str, model: str, response: str, answer: int) -> dict:
+        # Compute per-item correctness
+        item_correct = [
+            ext == tgt for ext, tgt in zip(extracted_items, target_items)
+        ]
+        n_items_correct = sum(item_correct)
+        n_items = len(target_items)
+
+        # Three metrics:
+        # 1. per_item_accuracy: fraction of items correct
+        # 2. all_correct: True if all items correct
+        # 3. count_correct: True if total_marked matches
         return {
             "id": case["id"],
             "expressions": case["expressions"],
-            "targets": case["targets"],
+            "targets": target_items,
             "target_count": case["count"],
             "difficulty": case["difficulty"],
             "provider": provider,
             "model": model,
             "response": response,
-            "extracted_answer": answer,
-            "correct": CompositeTask.is_correct(answer, case)
+            "extracted_items": extracted_items,
+            "extracted_count": answer["total_marked"],
+            "item_correct": item_correct,
+            "n_items_correct": n_items_correct,
+            "per_item_accuracy": n_items_correct / n_items if n_items > 0 else 0,
+            "all_correct": n_items_correct == n_items,
+            "count_correct": answer["total_marked"] == case["count"],
+            # Keep "correct" for backwards compat - now means all_correct
+            "correct": n_items_correct == n_items,
         }
 
 
@@ -439,7 +490,11 @@ def quick_test(
         results = []
         for (case, provider, model), resp in zip(task_info, responses):
             if isinstance(resp, Exception):
-                response, answer = f"ERROR: {resp}", None
+                response = f"ERROR: {resp}"
+                if task_type == CompositeTask:
+                    answer = {"items": ["unknown"] * case["group_size"], "total_marked": -1}
+                else:
+                    answer = "unknown"
             else:
                 response = resp
                 answer = task_type.extract(response, case)
@@ -447,16 +502,32 @@ def quick_test(
         return results
 
     results = asyncio.run(_run())
-    correct = sum(1 for r in results if r["correct"])
-    print(f"\nResults: {correct}/{len(results)} ({100*correct/len(results):.1f}%)")
-    for r in results:
-        status = "✓" if r["correct"] else "✗"
-        if task_type == SingleTask:
+
+    if task_type == SingleTask:
+        correct = sum(1 for r in results if r["correct"])
+        print(f"\nResults: {correct}/{len(results)} ({100*correct/len(results):.1f}%)")
+        for r in results:
+            status = "✓" if r["correct"] else "✗"
             inp = r['input'][:25]
             print(f"  {status} {r['id']} ({r['provider']}): {inp}... → {r['extracted_answer']}")
-        else:
-            ans, tgt = r['extracted_answer'], r['target_count']
-            print(f"  {status} {r['id']} ({r['provider']}): count={ans} (target: {tgt})")
+    else:
+        # Composite metrics
+        n = len(results)
+        all_correct = sum(1 for r in results if r["all_correct"])
+        count_correct = sum(1 for r in results if r["count_correct"])
+        avg_item_acc = sum(r["per_item_accuracy"] for r in results) / n if n > 0 else 0
+        print(f"\nResults ({n} cases):")
+        print(f"  Per-item accuracy: {100*avg_item_acc:.1f}%")
+        print(f"  All-correct@8:     {all_correct}/{n} ({100*all_correct/n:.1f}%)")
+        print(f"  Count exact match: {count_correct}/{n} ({100*count_correct/n:.1f}%)")
+        for r in results:
+            status = "✓" if r["all_correct"] else "✗"
+            items = r["n_items_correct"]
+            total = len(r["targets"])
+            cnt = r["extracted_count"]
+            tgt = r["target_count"]
+            prov = r['provider']
+            print(f"  {status} {r['id']} ({prov}): {items}/{total} items, count={cnt} (tgt {tgt})")
     return results
 
 
@@ -548,34 +619,89 @@ def analyze(results: list[dict]) -> dict:
     """
     Analyze evaluation results.
 
-    Returns dict with 'by_model' and 'by_difficulty' breakdowns.
+    For SingleTask: returns accuracy by model and difficulty.
+    For CompositeTask: returns three metrics by model and difficulty:
+        - per_item_accuracy: average per-item accuracy
+        - all_correct_rate: fraction with all items correct
+        - count_match_rate: fraction with exact count match
     """
     if not results:
         return {"by_model": {}, "by_difficulty": {}}
 
-    is_composite = "target_count" in results[0]
-    by_model = defaultdict(lambda: {"correct": 0, "total": 0, "off_by": []})
-    by_diff = defaultdict(lambda: defaultdict(lambda: {"correct": 0, "total": 0}))
+    is_composite = "all_correct" in results[0]
+
+    if not is_composite:
+        # SingleTask analysis
+        by_model = defaultdict(lambda: {"correct": 0, "total": 0})
+        by_diff = defaultdict(lambda: defaultdict(lambda: {"correct": 0, "total": 0}))
+
+        for r in results:
+            model = r["model"]
+            by_model[model]["total"] += 1
+            if r["correct"]:
+                by_model[model]["correct"] += 1
+            by_diff[model][r["difficulty"]]["total"] += 1
+            if r["correct"]:
+                by_diff[model][r["difficulty"]]["correct"] += 1
+
+        return {
+            "by_model": {m: {
+                "accuracy": d["correct"]/d["total"] if d["total"] > 0 else 0,
+                "correct": d["correct"],
+                "total": d["total"],
+            } for m, d in by_model.items()},
+            "by_difficulty": {m: {diff: {
+                "accuracy": d["correct"]/d["total"] if d["total"] > 0 else 0,
+            } for diff, d in diffs.items()} for m, diffs in by_diff.items()},
+        }
+
+    # CompositeTask analysis - three metrics
+    by_model = defaultdict(lambda: {
+        "total": 0,
+        "item_acc_sum": 0.0,
+        "all_correct": 0,
+        "count_correct": 0,
+    })
+    by_diff = defaultdict(lambda: defaultdict(lambda: {
+        "total": 0,
+        "item_acc_sum": 0.0,
+        "all_correct": 0,
+        "count_correct": 0,
+    }))
 
     for r in results:
         model = r["model"]
+        diff = r["difficulty"]
+
         by_model[model]["total"] += 1
-        if r["correct"]:
-            by_model[model]["correct"] += 1
-        elif is_composite and r["extracted_answer"] is not None and r["extracted_answer"] >= 0:
-            off = abs(r["extracted_answer"] - r["target_count"])
-            by_model[model]["off_by"].append(off)
-        by_diff[model][r["difficulty"]]["total"] += 1
-        if r["correct"]:
-            by_diff[model][r["difficulty"]]["correct"] += 1
+        by_model[model]["item_acc_sum"] += r["per_item_accuracy"]
+        if r["all_correct"]:
+            by_model[model]["all_correct"] += 1
+        if r["count_correct"]:
+            by_model[model]["count_correct"] += 1
+
+        by_diff[model][diff]["total"] += 1
+        by_diff[model][diff]["item_acc_sum"] += r["per_item_accuracy"]
+        if r["all_correct"]:
+            by_diff[model][diff]["all_correct"] += 1
+        if r["count_correct"]:
+            by_diff[model][diff]["count_correct"] += 1
+
+    def metrics(d):
+        t = d["total"]
+        if t == 0:
+            return {"per_item_accuracy": 0, "all_correct_rate": 0, "count_match_rate": 0}
+        return {
+            "per_item_accuracy": d["item_acc_sum"] / t,
+            "all_correct_rate": d["all_correct"] / t,
+            "count_match_rate": d["count_correct"] / t,
+            "total": t,
+        }
 
     return {
-        "by_model": {m: {
-            "accuracy": d["correct"]/d["total"] if d["total"] > 0 else 0,
-            "correct": d["correct"],
-            "total": d["total"],
-        } for m, d in by_model.items()},
-        "by_difficulty": {m: {diff: {
-            "accuracy": d["correct"]/d["total"] if d["total"] > 0 else 0,
-        } for diff, d in diffs.items()} for m, diffs in by_diff.items()},
+        "by_model": {m: metrics(d) for m, d in by_model.items()},
+        "by_difficulty": {
+            m: {diff: metrics(d) for diff, d in diffs.items()}
+            for m, diffs in by_diff.items()
+        },
     }

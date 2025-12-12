@@ -32,29 +32,41 @@ class TestExtractAnswer:
 
 
 class TestExtractCompositeAnswer:
-    """Test composite answer extraction."""
+    """Test composite answer extraction (JSON format)."""
 
-    def test_extract_tagged(self):
-        response = """
-        <answer>
-        E1: marked
-        E2: unmarked
-        E3: marked
-        total_marked: 2
-        </answer>
-        """
-        assert extract_composite_answer(response, 8) == 2
+    def test_extract_json_fenced(self):
+        response = '''Here are my answers:
+```json
+{"E1": "marked", "E2": "unmarked", "E3": "marked", "total_marked": 2}
+```
+'''
+        result = extract_composite_answer(response, 3)
+        assert result["items"] == ["marked", "unmarked", "marked"]
+        assert result["total_marked"] == 2
 
-    def test_extract_fallback(self):
-        assert extract_composite_answer("total: 5", 8) == 5
-        assert extract_composite_answer("count: 4", 8) == 4
+    def test_extract_json_bare(self):
+        response = '{"E1": "marked", "E2": "unmarked", "total_marked": 1}'
+        result = extract_composite_answer(response, 2)
+        assert result["items"] == ["marked", "unmarked"]
+        assert result["total_marked"] == 1
+
+    def test_extract_fallback_total(self):
+        response = "I think total_marked: 5"
+        result = extract_composite_answer(response, 8)
+        assert result["items"] == ["unknown"] * 8
+        assert result["total_marked"] == 5
 
     def test_extract_none(self):
-        assert extract_composite_answer(None, 8) == -1
+        result = extract_composite_answer(None, 8)
+        assert result["items"] == ["unknown"] * 8
+        assert result["total_marked"] == -1
 
-    def test_extract_out_of_range(self):
-        assert extract_composite_answer("total_marked: 100", 8) == -1
-        assert extract_composite_answer("total_marked: -1", 8) == -1
+    def test_extract_invalid_total(self):
+        response = '{"E1": "marked", "total_marked": 100}'
+        result = extract_composite_answer(response, 8)
+        assert result["total_marked"] == -1
 
     def test_extract_unparseable(self):
-        assert extract_composite_answer("no number here", 8) == -1
+        result = extract_composite_answer("no json here", 8)
+        assert result["items"] == ["unknown"] * 8
+        assert result["total_marked"] == -1
