@@ -1,12 +1,7 @@
 #+title: Distinction Benchmark
 #+date: <2025-12-12 Fri>
 #+author: Valerie Kim
-#+description: A notebook
-#+property: header-args:python :session lof :results output :python ".venv/bin/python"
-,#+PROPERTY: header-args :dir ~/dev/orgdemo/tmp :tangle
-,#+SETUPFILE: ~/dev/orgdemo/org-html-themes/org/theme-readtheorg-local.setup
-,#+INCLUDE: code.inc
-,#+CALL: init()
+#+property: header-args:python :session lof :results output :python "../.venv/bin/python"
 
 * Introduction
 
@@ -32,53 +27,45 @@ Every well-formed expression reduces to exactly one of two values:
 - =()= (the mark) — equivalent to TRUE or 1
 - void (empty) — equivalent to FALSE or 0
 
-* Install Packages
-#+begin_src bash
-uv sync
-#+end_src
-
-#+RESULTS:
-
 * Setup
 
 #+begin_src python
 import os
 import json
-import random
 import re
+import asyncio
 from datetime import datetime
 from dataclasses import dataclass, field
-from typing import Tuple, List, Optional, Callable, Any
+from collections import defaultdict
 from dotenv import load_dotenv
 
-load_dotenv()
+from lofbench import (
+    canonical_string,
+    generate_test_cases,
+    generate_composite_test_cases,
+)
 
-# === CONFIGURATION ===
-# Edit these values to customize the evaluation
+load_dotenv()
 
 @dataclass
 class Config:
     """Central configuration for all evaluations."""
-    # API Keys (auto-loaded from environment)
     openai_key: str = field(default_factory=lambda: os.environ.get("OPENAI_API_KEY", ""))
     anthropic_key: str = field(default_factory=lambda: os.environ.get("ANTHROPIC_API_KEY", ""))
     gemini_key: str = field(default_factory=lambda: os.environ.get("GEMINI_API_KEY", ""))
 
-    # Models to evaluate
     models: dict = field(default_factory=lambda: {
         "openai": "gpt-5.1",
         "anthropic": "claude-opus-4-5-20251101",
         "google": "gemini-3-pro-preview"
     })
 
-    # Evaluation settings
-    sample_size: int = 5          # Quick test size
-    composite_group_size: int = 8  # Problems per composite test
-    seed: int = 2024              # Reproducibility
+    sample_size: int = 5
+    composite_group_size: int = 8
+    seed: int = 2024
 
     @property
-    def available_providers(self) -> List[str]:
-        """Return list of providers with valid API keys."""
+    def available_providers(self) -> list[str]:
         providers = []
         if self.openai_key: providers.append("openai")
         if self.anthropic_key: providers.append("anthropic")
@@ -100,563 +87,33 @@ for p in ["openai", "anthropic", "google"]:
 :   ✓ anthropic: claude-opus-4-5-20251101
 :   ✓ google: gemini-3-pro-preview
 
-* Form Representation
-
-We use two representations:
-- *Internal*: Nested Python lists. =[[]]= represents =(())=, =[[], []]= represents =()()=
-- *String*: Parentheses notation for display and LLM prompts
+* Generate Test Cases
 
 #+begin_src python
-def form_to_string(form: list) -> str:
-    """Convert internal form representation to string."""
-    if not form:
-        return ""
-    return "".join(f"({form_to_string(child)})" for child in form)
+test_cases = generate_test_cases(n=4000, seed=20251211)
+composite_cases = generate_composite_test_cases(n_groups=500, group_size=8, seed=2024)
 
-def string_to_form(s: str) -> list:
-    """Parse string notation to internal form."""
-    result = []
-    i = 0
-    while i < len(s):
-        if s[i] == '(':
-            # Find matching close paren
-            depth = 1
-            j = i + 1
-            while j < len(s) and depth > 0:
-                if s[j] == '(':
-                    depth += 1
-                elif s[j] == ')':
-                    depth -= 1
-                j += 1
-            # Recursively parse contents
-            result.append(string_to_form(s[i+1:j-1]))
-            i = j
-        else:
-            i += 1
-    return result
+print(f"Generated {len(test_cases)} single test cases")
+print(f"Generated {len(composite_cases)} composite test cases")
 
-# Test
-test_forms = ["()", "(())", "()()", "((()))", "(()())"]
-for s in test_forms:
-    f = string_to_form(s)
-    back = form_to_string(f)
-    print(f"{s:12} -> {str(f):20} -> {back}")
-#+end_src
-
-#+RESULTS:
-: ()           -> [[]]                 -> ()
-: (())         -> [[[]]]               -> (())
-: ()()         -> [[], []]             -> ()()
-: ((()))       -> [[[[]]]]             -> ((()))
-: (()())       -> [[[], []]]           -> (()())
-
-* Form Generator
-
-Generate random well-formed LoF expressions with controlled complexity.
-
-#+begin_src python
-def form_depth(form: list) -> int:
-    """Calculate the nesting depth of a form (list representation)."""
-    if not form:
-        return 0
-    return 1 + max(form_depth(child) for child in form)
-
-
-def string_depth(s: str) -> int:
-    """Calculate the nesting depth of a form string. O(n) and no allocation."""
-    max_depth = 0
-    current = 0
-    for c in s:
-        if c == '(':
-            current += 1
-            max_depth = max(max_depth, current)
-        elif c == ')':
-            current -= 1
-    return max_depth
-
-
-def generate_form_string(min_depth: int = 1, max_depth: int = 3, max_width: int = 3, max_marks: int = 200) -> str:
-    """
-    Generate a random LoF form as a string directly (memory efficient).
-
-    Args:
-        min_depth: Minimum nesting depth (guaranteed)
-        max_depth: Maximum nesting depth
-        max_width: Maximum number of adjacent forms at any level
-        max_marks: Maximum total number of marks (parenthesis pairs) to prevent explosion
-
-    Returns:
-        A form as a string, e.g. "(()())" or ""
-    """
-    marks_used = [0]  # Mutable counter
-
-    def build(remaining_min: int, remaining_max: int) -> str:
-        if remaining_max <= 0 or marks_used[0] >= max_marks:
-            if marks_used[0] < max_marks and random.random() > 0.5:
-                marks_used[0] += 1
-                return "()"
-            return ""
-
-        if remaining_min > 0:
-            width = random.randint(1, max_width)
-        else:
-            width = random.randint(0, max_width)
-            if width == 0:
-                return ""
-
-        # One child guaranteed deep, others can be shallow
-        parts = []
-        deep_idx = random.randint(0, width - 1) if remaining_min > 0 else -1
-        for i in range(width):
-            if marks_used[0] >= max_marks:
-                break
-            marks_used[0] += 1
-            if i == deep_idx:
-                inner = build(remaining_min - 1, remaining_max - 1)
-            else:
-                inner = build(0, remaining_max - 1)
-            parts.append(f"({inner})")
-        return "".join(parts)
-
-    return build(min_depth, max_depth)
-
-
-# Generate some examples
-random.seed(1010101423)
-print("Sample generated forms (min_depth=2, max_depth=3):")
-for i in range(10):
-    s = generate_form_string(min_depth=2, max_depth=3, max_width=2)
-    d = string_depth(s)
-    print(f"  {i+1:2}. depth={d}: {s if s else '<void>'}")
-#+end_src
-
-#+RESULTS:
-#+begin_example
-Sample generated forms (min_depth=2, max_depth=3):
-   1. depth=4: ((())((())))
-   2. depth=4: (((()))(()(())))
-   3. depth=4: ((())((())))
-   4. depth=4: (((())))((()))
-   5. depth=2: (()())
-   6. depth=4: (((())()))
-   7. depth=4: (((())))
-   8. depth=3: ((()))((()())(()))
-   9. depth=4: (((())())(()))
-  10. depth=4: ((()(()))((())()))(((())(())))
-#+end_example
-
-* Ground-Truth Simplifier
-
-O(n) stack-based simplifier. Single pass, applies I1 and I2 as marks close.
-
-#+begin_src python
-def simplify_string(s: str) -> Tuple[str, List[Tuple[str, str, str]]]:
-    """
-    O(n) simplification with step tracking.
-
-    Returns:
-        (canonical_form, steps) where steps is [(before, after, axiom), ...]
-    """
-    stack: List[List[str]] = [[]]  # Stack of frames, each frame is list of child forms
-    steps = []
-
-    for c in s:
-        if c == '(':
-            stack.append([])
-        elif c == ')':
-            children = stack.pop()
-
-            # Apply I1: all identical → condense
-            if len(children) > 1 and all(ch == children[0] for ch in children):
-                before = "(" + "".join(children) + ")"
-                children = [children[0]]
-                after = "(" + "".join(children) + ")"
-                steps.append((before, after, "I1"))
-
-            # Apply I2: single mark inside → cancel to void
-            content = "".join(children)
-            if content == "()":
-                before = "(())"
-                steps.append((before, "", "I2"))
-                # Don't append anything to parent (void)
-            else:
-                # Append this mark to parent
-                stack[-1].append("(" + content + ")")
-
-    # Root level
-    result = stack[0]
-
-    # Apply I1 at root if needed
-    if len(result) > 1 and all(ch == result[0] for ch in result):
-        before = "".join(result)
-        result = [result[0]]
-        after = "".join(result)
-        steps.append((before, after, "I1"))
-
-    final = "".join(result)
-    return final if final else "void", steps
-
-
-def canonical_string(s: str) -> str:
-    """Get the canonical (simplified) form of a string."""
-    result, _ = simplify_string(s)
-    return result
-
-
-# Test the simplifier
-print("Simplification examples:")
-test_exprs = ["()()", "(())", "((()))", "(()())", "()(())", "(()(()))", "(())()", "(())(())"]
-for expr in test_exprs:
-    result, steps = simplify_string(expr)
-    print(f"\n{expr} -> {result}")
-    for before, after, axiom in steps:
-        after_display = after if after else "void"
-        print(f"  {before} -> {after_display} [{axiom}]")
-#+end_src
-
-#+RESULTS:
-#+begin_example
-Simplification examples:
-
-()() -> ()
-  ()() -> () [I1]
-
-(()) -> void
-  (()) -> void [I2]
-
-((())) -> ()
-  (()) -> void [I2]
-
-(()()) -> void
-  (()()) -> (()) [I1]
-  (()) -> void [I2]
-
-()(()) -> ()
-  (()) -> void [I2]
-
-(()(())) -> void
-  (()) -> void [I2]
-  (()) -> void [I2]
-
-(())() -> ()
-  (()) -> void [I2]
-
-(())(()) -> void
-  (()) -> void [I2]
-  (()) -> void [I2]
-#+end_example
-
-* Test Case Generation
-
-Generate a reproducible test suite across difficulty levels.
-
-Difficulty is defined by *minimum* depth:
-- Easy: depth 1-2 (simple marks and single nesting)
-- Medium: depth 2-3 (requires at least one I2 application)
-- Hard: depth 3-4 (multiple nested reductions)
-
-#+begin_src python
-import math
-def generate_test_cases(n: int = 4000, seed: int = 20251211) -> List[dict]:
-    """Generate n test cases with varying difficulty."""
-    random.seed(seed)
-    cases = []
-    one_fifth = math.floor(n/5)
-
-    # Distribution with (difficulty, min_depth, max_depth, max_width, max_marks)
-    # max_marks caps complexity to keep simplification fast
-    difficulties = (
-        [("1. easy", 2, 3, 2, 15)] * one_fifth +
-        [("2. medium", 3, 4, 3, 20)] * one_fifth +
-        [("3. hard", 4, 5, 6, 25)] * one_fifth +
-        [("4. lunatic", 3, 8, 9, 30)] * one_fifth +
-        [("5. extra", 4, 9, 3, 35)] * one_fifth 
-    )
-    random.shuffle(difficulties)
-
-    for i, (diff, min_d, max_d, max_w, max_m) in enumerate(difficulties[:n]):
-        input_str = generate_form_string(min_depth=min_d, max_depth=max_d, max_width=max_w, max_marks=max_m)
-        if not input_str:
-            input_str = "()"  # Ensure non-empty
-        depth = string_depth(input_str)
-
-        # O(n) simplification directly on string
-        target, steps = simplify_string(input_str)
-
-        cases.append({
-            "id": f"lof_{i+1:03d}",
-            "input": input_str,
-            "target": target,
-            "difficulty": diff,
-            "depth": depth,
-            "steps": len(steps)
-        })
-
-    return cases
-
-
-# Generate and preview test cases
-test_cases = generate_test_cases()
-print(f"Generated {len(test_cases)} test cases\n")
-
-# Preview distribution
-from collections import Counter
-diff_counts = Counter(c["difficulty"] for c in test_cases)
-target_counts = Counter(c["target"] for c in test_cases)
-depth_by_diff = {}
-for c in test_cases:
-    depth_by_diff.setdefault(c["difficulty"], []).append(c["depth"])
-
-print("By difficulty:")
-for diff in ["1. easy", "2. medium", "3. hard", "4. lunatic", "5. extra"]:
-    depths = depth_by_diff.get(diff, [])
-    avg_depth = sum(depths) / len(depths) if depths else 0
-    print(f"  {diff}: {diff_counts[diff]} cases, avg depth={avg_depth:.1f}, range=[{min(depths)}-{max(depths)}]")
-
-print("\nBy target value:")
-for target, count in sorted(target_counts.items()):
-    print(f"  {target}: {count}")
-
-print("\nSample cases:")
-for case in test_cases[:20]:
-    print(f"  {case['id']}: {case['input']:20} -> {case['target']:6} (d={case['depth']}, {case['difficulty']}, {case['steps']} steps)")
-#+end_src
-
-#+RESULTS:
-#+begin_example
-Generated 4000 test cases
-
-By difficulty:
-  1. easy: 800 cases, avg depth=3.4, range=[2-4]
-  2. medium: 800 cases, avg depth=4.9, range=[3-5]
-  3. hard: 800 cases, avg depth=6.0, range=[5-6]
-  4. lunatic: 800 cases, avg depth=9.0, range=[9-9]
-  5. extra: 800 cases, avg depth=9.8, range=[4-10]
-
-By target value:
-  (): 2145
-  void: 1855
-
-Sample cases:
-  lof_001: (((())(())))(((()))(()())) -> void   (d=4, 1. easy, 7 steps)
-  lof_002: ((()())())(())       -> void   (d=3, 1. easy, 4 steps)
-  lof_003: (((()()(()((()(((())(())(()))((())))())()())))())())((((((((())))))))) -> ()     (d=10, 5. extra, 19 steps)
-  lof_004: (((()(()))((())()(())))()) -> void   (d=5, 2. medium, 7 steps)
-  lof_005: ((())((())()))       -> ()     (d=4, 1. easy, 3 steps)
-  lof_006: (((())()(()(())(())))((())(()()())(()))) -> void   (d=5, 2. medium, 10 steps)
-  lof_007: (((((((()(()))((())(()))((())(())(())(())(()))(()(())))))))) -> ()     (d=9, 4. lunatic, 15 steps)
-  lof_008: (((()))((())))(())   -> void   (d=4, 1. easy, 5 steps)
-  lof_009: (((())()))((()((())))((()())(()(())()))) -> ()     (d=5, 2. medium, 11 steps)
-  lof_010: ((((())()(()))))     -> void   (d=5, 2. medium, 4 steps)
-  lof_011: ((()(()(()))())((()(())))(()))(((()()))) -> void   (d=5, 2. medium, 11 steps)
-  lof_012: ()(((()))())         -> ()     (d=4, 1. easy, 3 steps)
-  lof_013: ((()(()(()()(())))()(((())(())()(())()())(()())))) -> ()     (d=6, 3. hard, 13 steps)
-  lof_014: ((((()()(())()()())((())())(()()())(()(())(()))))) -> ()     (d=6, 3. hard, 11 steps)
-  lof_015: ((((((((())()()(()))()((())()(())()(())(()))((())()()))))))) -> ()     (d=9, 4. lunatic, 16 steps)
-  lof_016: ((()(())))           -> ()     (d=4, 1. easy, 2 steps)
-  lof_017: ((((()(((()(())(())(())())((())()()()(()))(()(())(())))))))) -> ()     (d=9, 4. lunatic, 15 steps)
-  lof_018: (((()(())(()))(()()))()())() -> ()     (d=5, 2. medium, 7 steps)
-  lof_019: ((()((()(())(()))(()(())()()()))))((((()(()))()))) -> ()     (d=6, 3. hard, 12 steps)
-  lof_020: (((((())(())()(())))()((()(()))((())())((())())))) -> ()     (d=6, 3. hard, 12 steps)
-#+end_example
-
-* Generate Composite Test Cases
-
-Instead of individual 50/50 questions, composite tests present N problems and ask
-for the count of =()= results. Random guessing drops from 50% to 1/(N+1).
-
-For N=8: random guess accuracy = 1/9 ≈ 11%
-
-Use with the unified framework: =quick_test(composite_cases, CompositeTask)=
-
-#+begin_src python
-def generate_composite_test_cases(
-    n_groups: int = 500,
-    group_size: int = 8,
-    seed: int = 2024
-) -> List[dict]:
-    """
-    Generate composite test cases (groups of problems).
-
-    Args:
-        n_groups: Number of composite test cases
-        group_size: Problems per group
-        seed: Random seed for reproducibility
-
-    Returns:
-        List of composite test case dicts with 'expressions', 'targets', 'count'
-    """
-    random.seed(seed)
-    cases = []
-
-    # Difficulty configs: (name, min_depth, max_depth, max_width, max_marks)
-    difficulties = [
-        ("1. easy", 2, 3, 2, 15),
-        ("2. medium", 3, 4, 3, 20),
-        ("3. hard", 4, 5, 6, 25),
-        ("4. lunatic", 3, 8, 9, 30),
-        ("5. extra", 4, 9, 3, 35)
-    ]
-
-    for i in range(n_groups):
-        # Rotate through difficulties
-        diff_name, min_d, max_d, max_w, max_m = difficulties[i % len(difficulties)]
-
-        expressions = []
-        targets = []
-
-        for _ in range(group_size):
-            expr = generate_form_string(min_depth=min_d, max_depth=max_d,
-                                         max_width=max_w, max_marks=max_m)
-            if not expr:
-                expr = "()"  # Ensure non-empty
-            target = canonical_string(expr)
-            expressions.append(expr)
-            targets.append(target)
-
-        # Count how many simplify to ()
-        mark_count = sum(1 for t in targets if t == "()")
-
-        cases.append({
-            "id": f"comp_{i+1:03d}",
-            "expressions": expressions,
-            "targets": targets,
-            "count": mark_count,
-            "difficulty": diff_name,
-            "group_size": group_size
-        })
-
-    return cases
-
-
-# Generate and preview composite test cases
-composite_cases = generate_composite_test_cases(group_size=8)
-print(f"Generated {len(composite_cases)} composite test cases\n")
-
-# Distribution analysis
-from collections import Counter
-count_dist = Counter(c["count"] for c in composite_cases)
-diff_dist = Counter(c["difficulty"] for c in composite_cases)
-
-print("By target count (how many () in each group):")
-for count in range(9):
-    print(f"  {count}: {count_dist[count]} cases")
-
-print("\nBy difficulty:")
-for diff, cnt in sorted(diff_dist.items()):
-    print(f"  {diff}: {cnt} cases")
-
-print("\nSample cases:")
-for case in composite_cases[:3]:
-    print(f"\n{case['id']} ({case['difficulty']}):")
-    print(f"  Count: {case['count']} marks out of {case['group_size']}")
-    for j, (expr, target) in enumerate(zip(case['expressions'], case['targets']), 1):
-        print(f"    {j}. {expr[:40]:40} -> {target}")
-#+end_src
-
-#+RESULTS:
-#+begin_example
-Generated 500 composite test cases
-
-By target count (how many () in each group):
-  0: 1 cases
-  1: 12 cases
-  2: 43 cases
-  3: 99 cases
-  4: 141 cases
-  5: 118 cases
-  6: 64 cases
-  7: 20 cases
-  8: 2 cases
-
-By difficulty:
-  1. easy: 100 cases
-  2. medium: 100 cases
-  3. hard: 100 cases
-  4. lunatic: 100 cases
-  5. extra: 100 cases
-
-Sample cases:
-
-comp_001 (1. easy):
-  Count: 2 marks out of 8
-    1. ((()(()))((())))((()())((())))           -> void
-    2. (((())(()))((())()))                     -> void
-    3. (((()))(()))                             -> void
-    4. (((()))(()))                             -> void
-    5. (()())(()())                             -> void
-    6. ((()())((())()))(()())                   -> ()
-    7. ((()())(()))(((())(()))((())))           -> ()
-    8. (())                                     -> void
-
-comp_002 (2. medium):
-  Count: 7 marks out of 8
-    1. (((()()))(((())()(()))((()))))(((()()))) -> void
-    2. (()(((()))(()(())())()))(()()(()))((())) -> ()
-    3. (((())((()))()))()((()()))               -> ()
-    4. ((((()))))(((()(())(())))(((())()()))()) -> ()
-    5. ((((()))(()())))(()(((())()(()))))(()()) -> ()
-    6. ()(((())())((())(()(())))((())((())()))) -> ()
-    7. (())((((()))()))                         -> ()
-    8. ((((())(()))))                           -> ()
-
-comp_003 (3. hard):
-  Count: 5 marks out of 8
-    1. ((((()()()())((())()(()))((())))(((())() -> ()
-    2. ((()(((())()(()))((()))(()()()()(())(()) -> ()
-    3. ()((((()()()()(()))((())(())(())()()())( -> ()
-    4. ((()((()()(())()())(()(()))()((())()(()) -> ()
-    5. (((((())()())(()(())(())(()))(()(())()() -> void
-    6. (()(((()(())(()))(()(())()(())()(()))))( -> void
-    7. (((((())()(())(())(())))((()()(()))(()() -> ()
-    8. (((((())(())(())()())((())(())()())(()() -> void
-#+end_example
-
-* Save Test Cases
-
-#+begin_src python
-# Save test cases for reproducibility
+# Save
 with open("test_cases.json", "w") as f:
     json.dump(test_cases, f, indent=2)
-print(f"Saved {len(test_cases)} test cases to test_cases.json")
+with open("composite_test_cases.json", "w") as f:
+    json.dump(composite_cases, f, indent=2)
 #+end_src
-
-#+RESULTS:
-: Saved 4000 test cases to test_cases.json
 
 * Load Test Cases
 
-Skip test generation by loading previously saved cases.
-
 #+begin_src python
-# Load saved test cases (skip generation)
 with open("test_cases.json", "r") as f:
     test_cases = json.load(f)
-print(f"Loaded {len(test_cases)} test cases from test_cases.json")
-#+end_src
-
-* Save/Load Composite Test Cases
-
-#+begin_src python
-# Save composite test cases
-with open("composite_test_cases.json", "w") as f:
-    json.dump(composite_cases, f, indent=2)
-print(f"Saved {len(composite_cases)} composite test cases to composite_test_cases.json")
-#+end_src
-
-#+RESULTS:
-: Saved 500 composite test cases to composite_test_cases.json
-
-#+begin_src python
-# Load composite test cases
 with open("composite_test_cases.json", "r") as f:
     composite_cases = json.load(f)
-print(f"Loaded {len(composite_cases)} composite test cases")
+print(f"Loaded {len(test_cases)} single, {len(composite_cases)} composite test cases")
 #+end_src
 
-* Set up Prompt
-
-Initialize API clients for each provider.
+* Prompts
 
 #+begin_src python
 PROMPT_TEMPLATE = """You are an expert in evaluating Laws of Form expressions. Your task is to analyze an expression that represents a structure of distinctions and reduce it to its simplest form using two fundamental axioms.
@@ -667,80 +124,54 @@ Here is the expression you need to evaluate:
 {expression}
 </expression>
 
-The expression may be presented in various formats both text and image: nested parens, ASCII diagrams, emoji grids, JSON, s-exprs, nested rings, buckets, contours, or something unlisted, including arbitrary combinations. Your first step is to interpret what structure is being represented into a tree structure that you are comfortable manipulating. You must decide on a format and show your canonicalized tree structure within <structure> tags.
-
 ## The form and axioms
-We take as given the idea of distinction and the idea of indication, and that we cannot make an indication without drawing a distinction. We take, therefore, the form of distinction for the form.
-
-### Definition
-
-Distinction is perfect continence. 
-
-That is to say, a distinction is drawn by arranging a boundary with separate sides so that a point on one side cannot reach the other side without crossing the boundary. For example, in a plane space a circle draws a distinction.
-Once a distinction is drawn, the spaces, states, or contents on each side of the boundary, being distinct, can be indicated.
-There can be no distinction without motive, and there can be no motive unless contents are seen to differ in value.
-If a content is of value, a name can be taken to indicate this value.
-Thus the calling of the name can be identified with the value of the content.
-
-[In other words: the fundamental unit is a boundary that separates inside from outside.]
 
 #### Axiom 1. The law of calling
-The value of a call made again is the value of the call.
-That is to say, if a name is called and then is called again, the value indicated by the two calls taken together is the value indicated by one of them.
-That is to say, for any name, to recall is to call.
-Equally, if the content is of value, a motive or an intention or instruction to cross the boundary into the content can be taken to indicate this value.
-Thus, also, the crossing of the boundary can be identified with the value of the content.
-
-[In other words: multiple adjacent boundaries with nothing else inside them condense into one.]
-[Example: OO = O]
-
+Multiple adjacent boundaries with nothing else inside them condense into one.
+Example: ()() = ()
 
 #### Axiom 2. The law of crossing
-The value of a crossing made again is not the value of the crossing.
-That is to say, if it is intended to cross a boundary and then it is intended to cross it
-again, the value indicated by the two intentions taken together is the value indicated by
-none of them.
-That is to say, for any boundary, to recross is not to cross.
-
-[In other words: two nested boundaries with nothing else between them annihilate to void.]
-[Example: (()) = void]
-
+Two nested boundaries with nothing else between them annihilate to void.
+Example: (()) = void
 
 ## Your Approach
 
-Think through this step by step:
+1. Identify the structure
+2. Look for opportunities to apply axioms (I1 or I2)
+3. Apply axioms iteratively until no more reductions are possible
+4. State the final form
 
-1. First, identify how the structure is encoded in the given format
-2. If needed, convert or interpret it into a form you can work with
-3. Look for opportunities to apply the axioms (I1 or I2)
-4. Apply the axioms iteratively, showing each transformation
-5. Continue until no more reductions are possible
-6. State the final evaluated form
-
-Work through your evaluation in <reduction_process> tags inside your thinking block. Be systematic:
-
-- First, write out the raw structure exactly as it appears in the input
-- If the format is not your preferred tree notation, explicitly show your conversion to your preferred tree notation step by step
-- Before starting reductions, scan the entire expression and identify all locations where axioms could potentially be applied
-- For each reduction step:
-  ,* State which axiom you're applying (I1 or I2)
-  ,* Identify the specific substring/indices of the expression being reduced
-  ,* **Do not reprint the entire expression if it is longer than 50 chars**
-  ,* Only reprint the relevant segment or a placeholder. Use any techniques you need to keep track of your changes.
-- After each transformation, explicitly check whether further reductions are possible
-- Continue until you confirm no more axioms can be applied
-
-It's OK for this section to be quite long if the expression requires many reduction steps.
-
-After completing your reduction process, provide your final answer in this format:
+After completing your reduction, provide your final answer:
 
 <answer>X</answer>
 
 where X is either:
-- unmarked (if the expression reduces to void / nothing), or
-- marked (if structure remains and can not be reduced to void)
+- unmarked (if the expression reduces to void)
+- marked (if structure remains)
+"""
 
-Your final output should consist only of the <answer> tags with the result, and should not duplicate or rehash any of the reduction work you did in the thinking block.
+COMPOSITE_PROMPT_TEMPLATE = """You are an expert in evaluating Laws of Form expressions.
+
+Here are the expressions you need to evaluate:
+
+<expressions>
+{expressions}
+</expressions>
+
+#### Axiom 1. The law of calling
+Multiple adjacent boundaries condense into one: ()() = ()
+
+#### Axiom 2. The law of crossing
+Two nested boundaries annihilate to void: (()) = void
+
+For each expression, reduce it and determine if it's marked or unmarked.
+
+<answer>
+E1: marked/unmarked
+E2: marked/unmarked
+...
+total_marked: N
+</answer>
 """
 
 
@@ -749,140 +180,20 @@ def extract_answer(response: str) -> str:
     if response is None:
         return "unknown"
 
-    # Look for <answer> tag with marked/unmarked or ()/void
     match = re.search(r'<answer>\s*(marked|unmarked|\(\)|void)\s*</answer>', response, re.IGNORECASE)
     if match:
         ans = match.group(1).lower()
-        # Normalize: marked/() -> "()", unmarked/void -> "void"
         return "()" if ans in ("marked", "()") else "void"
 
-    # Fallback: FINAL: pattern
-    match = re.search(r'FINAL:\s*(marked|unmarked|\(\)|void)', response, re.IGNORECASE)
-    if match:
-        ans = match.group(1).lower()
-        return "()" if ans in ("marked", "()") else "void"
-
-    # Last resort: look for last occurrence of key terms
     response_lower = response.lower()
-    # Find last position of each term
-    positions = {
-        "()": response_lower.rfind("()"),
-        "marked": -1,  # Will search for standalone "marked"
-        "void": response_lower.rfind("void"),
-        "unmarked": response_lower.rfind("unmarked"),
-        "empty": response_lower.rfind("empty")
-    }
-    # Find "marked" not preceded by "un"
-    idx = response_lower.rfind("marked")
-    if idx > 0 and response_lower[idx-2:idx] != "un":
-        positions["marked"] = idx
-    elif idx == 0:
-        positions["marked"] = idx
-
-    # Group by meaning
-    mark_pos = max(positions["()"], positions["marked"])
-    void_pos = max(positions["void"], positions["unmarked"], positions["empty"])
+    mark_pos = max(response_lower.rfind("()"), response_lower.rfind("marked"))
+    void_pos = max(response_lower.rfind("void"), response_lower.rfind("unmarked"))
 
     if mark_pos > void_pos:
         return "()"
     elif void_pos > mark_pos:
         return "void"
-
     return "unknown"
-
-
-# --- Composite prompt (for multi-problem tests) ---
-
-COMPOSITE_PROMPT_TEMPLATE = """You are an expert in evaluating Laws of Form expressions. Your task is to analyze expressions that represent structures of distinctions and reduce each to its simplest form using two fundamental axioms.
-
-Here are the expressions you need to evaluate:
-
-<expressions>
-{expressions}
-</expressions>
-
-Each expression may be presented in various formats both text and image: nested parens, ASCII diagrams, emoji grids, JSON, s-exprs, nested rings, buckets, contours, or something unlisted, including arbitrary combinations. Your first step for each is to interpret what structure is being represented into a tree structure that you are comfortable manipulating. You must decide on a format and show your canonicalized tree structure within <structure> tags.
-
-## The form and axioms
-We take as given the idea of distinction and the idea of indication, and that we cannot make an indication without drawing a distinction. We take, therefore, the form of distinction for the form.
-
-### Definition
-
-Distinction is perfect continence. 
-
-That is to say, a distinction is drawn by arranging a boundary with separate sides so that a point on one side cannot reach the other side without crossing the boundary. For example, in a plane space a circle draws a distinction.
-Once a distinction is drawn, the spaces, states, or contents on each side of the boundary, being distinct, can be indicated.
-There can be no distinction without motive, and there can be no motive unless contents are seen to differ in value.
-If a content is of value, a name can be taken to indicate this value.
-Thus the calling of the name can be identified with the value of the content.
-
-[In other words: the fundamental unit is a boundary that separates inside from outside.]
-
-#### Axiom 1. The law of calling
-The value of a call made again is the value of the call.
-That is to say, if a name is called and then is called again, the value indicated by the two calls taken together is the value indicated by one of them.
-That is to say, for any name, to recall is to call.
-Equally, if the content is of value, a motive or an intention or instruction to cross the boundary into the content can be taken to indicate this value.
-Thus, also, the crossing of the boundary can be identified with the value of the content.
-
-[In other words: multiple adjacent boundaries with nothing else inside them condense into one.]
-[Example: OO = O]
-
-#### Axiom 2. The law of crossing
-The value of a crossing made again is not the value of the crossing.
-That is to say, if it is intended to cross a boundary and then it is intended to cross it
-again, the value indicated by the two intentions taken together is the value indicated by
-none of them.
-That is to say, for any boundary, to recross is not to cross.
-
-[In other words: two nested boundaries with nothing else between them annihilate to void.]
-[Example: (()) = void]
-
-## Your Approach
-
-For each expression, think through it step by step:
-
-1. First, identify how the structure is encoded in the given format
-2. If needed, convert or interpret it into a form you can work with
-3. Look for opportunities to apply the axioms (I1 or I2)
-4. Apply the axioms iteratively, showing each transformation
-5. Continue until no more reductions are possible
-6. State the final evaluated form
-
-Work through your evaluations in <reduction_process> tags inside your thinking block. Be systematic:
-
-- Label each expression (E1, E2, ... E8)
-- For each expression:
-  ,* Write out the raw structure exactly as it appears in the input
-  ,* If the format is not your preferred tree notation, explicitly show your conversion step by step
-  ,* Before starting reductions, scan the entire expression and identify all locations where axioms could potentially be applied
-  ,* For each reduction step:
-    - State which axiom you're applying (I1 or I2)
-    - Identify the specific substring/indices of the expression being reduced
-    - **Do not reprint the entire expression if it is longer than 50 chars**
-    - Only reprint the relevant segment or a placeholder. Use any techniques you need to keep track of your changes.
-  ,* After each transformation, explicitly check whether further reductions are possible
-  ,* Continue until you confirm no more axioms can be applied
-  ,* State whether this expression evaluates to marked or unmarked
-
-It's OK for this section to be quite long if the expressions require many reduction steps.
-
-After completing all reduction processes, provide your final answer in this format:
-
-<answer>
-E1: marked/unmarked
-E2: marked/unmarked
-E3: marked/unmarked
-E4: marked/unmarked
-E5: marked/unmarked
-E6: marked/unmarked
-E7: marked/unmarked
-E8: marked/unmarked
-total_marked: N
-</answer>
-
-Your final output should consist only of the <answer> tags with the results, and should not duplicate or rehash any of the reduction work you did in the thinking block.
-"""
 
 
 def extract_composite_answer(response: str, n: int) -> int:
@@ -890,109 +201,47 @@ def extract_composite_answer(response: str, n: int) -> int:
     if response is None:
         return -1
 
-    # Look for total_marked: N in <answer> block
     match = re.search(r'<answer>.*?total_marked:\s*(\d+).*?</answer>', response, re.IGNORECASE | re.DOTALL)
     if match:
         val = int(match.group(1))
         return val if 0 <= val <= n else -1
 
-    # Fallback: look for just <answer>N</answer>
-    match = re.search(r'<answer>\s*(\d+)\s*</answer>', response, re.IGNORECASE)
-    if match:
-        val = int(match.group(1))
-        return val if 0 <= val <= n else -1
-
-    # Fallback: count/total pattern
     match = re.search(r'(?:count|total)[_:\s]+(\d+)', response, re.IGNORECASE)
     if match:
         val = int(match.group(1))
         return val if 0 <= val <= n else -1
 
-    # Last resort: any number in valid range
-    matches = re.findall(r'\b(\d+)\b', response)
-    for m in reversed(matches):
-        val = int(m)
-        if 0 <= val <= n:
-            return val
-
     return -1
-
-
-# Test answer extraction
-print("Testing extract_answer:")
-test_responses = [
-    "<answer>()</answer>",
-    "<answer>void</answer>",
-    "<answer>marked</answer>",
-    "<answer>unmarked</answer>",
-    "Result: ().",
-    "Void.",
-    "The answer is marked.",
-    "This is unmarked."
-]
-for resp in test_responses:
-    print(f"  {repr(resp[:30]):32} → {extract_answer(resp)}")
-print("Testing extract_composite_answer:")
-for resp, n in [("<answer>\nE1: marked\ntotal_marked: 5\n</answer>", 8), ("Count: 7", 8)]:
-    print(f"  {repr(resp[:40]):42} → {extract_composite_answer(resp, n)}")
 #+end_src
 
-#+RESULTS:
-#+begin_example
-Testing extract_answer:
-  '<answer>()</answer>'            → ()
-  '<answer>void</answer>'          → void
-  '<answer>marked</answer>'        → ()
-  '<answer>unmarked</answer>'      → void
-  'Result: ().'                    → ()
-  'Void.'                          → void
-  'The answer is marked.'          → ()
-  'This is unmarked.'              → void
-Testing extract_composite_answer:
-  '<answer>\nE1: marked\ntotal_marked: 5\n</an' → 5
-  'Count: 7'                                 → 7
-#+end_example
+* Eval Framework
 
-* Unified Eval Framework
-
-Generic evaluation that works for both single and composite tests.
-
-#+begin_src python :async
+#+begin_src python
 from openai import AsyncOpenAI
 from anthropic import AsyncAnthropic
 from google import genai
-import asyncio
-from collections import defaultdict
 
-
-# === TASK TYPES ===
-# Each task type defines how to format prompts and extract answers
 
 class SingleTask:
-    """Single expression → () or void."""
-
-    prompt = PROMPT_TEMPLATE
-
     @staticmethod
     def format_prompt(case: dict) -> str:
         return PROMPT_TEMPLATE.format(expression=case["input"])
 
     @staticmethod
-    def extract(response: str, case: dict) -> Any:
+    def extract(response: str, case: dict):
         return extract_answer(response)
 
     @staticmethod
-    def is_correct(answer: Any, case: dict) -> bool:
+    def is_correct(answer, case: dict) -> bool:
         return answer == case["target"]
 
     @staticmethod
-    def make_result(case: dict, provider: str, model: str, response: str, answer: Any) -> dict:
+    def make_result(case: dict, provider: str, model: str, response: str, answer) -> dict:
         return {
             "id": case["id"],
             "input": case["input"],
             "target": case["target"],
             "difficulty": case["difficulty"],
-            "depth": case.get("depth", 0),
             "provider": provider,
             "model": model,
             "response": response,
@@ -1002,15 +251,10 @@ class SingleTask:
 
 
 class CompositeTask:
-    """Multiple expressions → count of () results."""
-
     @staticmethod
     def format_prompt(case: dict) -> str:
         lines = [f"{i}. {expr}" for i, expr in enumerate(case["expressions"], 1)]
-        return COMPOSITE_PROMPT_TEMPLATE.format(
-            expressions="\n".join(lines),
-            n=case["group_size"]
-        )
+        return COMPOSITE_PROMPT_TEMPLATE.format(expressions="\n".join(lines))
 
     @staticmethod
     def extract(response: str, case: dict) -> int:
@@ -1036,10 +280,7 @@ class CompositeTask:
         }
 
 
-# === GENERIC EVAL FUNCTIONS ===
-
 async def eval_openai(prompt: str, model: str) -> str:
-    """Call OpenAI API. Returns response text."""
     async with AsyncOpenAI() as client:
         response = await client.chat.completions.create(
             model=model,
@@ -1050,7 +291,6 @@ async def eval_openai(prompt: str, model: str) -> str:
 
 
 async def eval_anthropic(prompt: str, model: str) -> str:
-    """Call Anthropic API. Returns response text."""
     client = AsyncAnthropic()
     async with client.messages.stream(
         model=model,
@@ -1062,7 +302,6 @@ async def eval_anthropic(prompt: str, model: str) -> str:
 
 
 async def eval_google(prompt: str, model: str) -> str:
-    """Call Google API. Returns response text."""
     async with genai.Client().aio as client:
         response = await client.models.generate_content(model=model, contents=prompt)
     return response.text
@@ -1075,26 +314,7 @@ EVAL_FNS = {
 }
 
 
-# === UNIFIED RUNNER ===
-
-async def run_eval(
-    cases: List[dict],
-    task_type: type = SingleTask,
-    providers: List[str] = None,
-    n: int = None
-) -> List[dict]:
-    """
-    Run evaluation on cases using specified task type.
-
-    Args:
-        cases: Test cases to evaluate
-        task_type: SingleTask or CompositeTask
-        providers: List of providers to use (default: all available)
-        n: Limit to first n cases (default: all)
-
-    Returns:
-        List of result dicts
-    """
+async def run_eval(cases, task_type=SingleTask, providers=None, n=None):
     if providers is None:
         providers = CFG.available_providers
     if n is not None:
@@ -1120,27 +340,21 @@ async def run_eval(
         else:
             response = resp
             answer = task_type.extract(response, case)
-
         results.append(task_type.make_result(case, provider, model, response, answer))
 
     return results
 
 
-# === CONVENIENCE FUNCTIONS ===
-
-def quick_test(cases: List[dict], task_type: type = SingleTask, n: int = None) -> List[dict]:
-    """Run a quick sample evaluation. Returns results."""
+def quick_test(cases, task_type=SingleTask, n=None):
     n = n or CFG.sample_size
     print(f"Running {task_type.__name__} on {n} cases...")
     results = asyncio.run(run_eval(cases, task_type, n=n))
 
-    # Print summary
     correct = sum(1 for r in results if r["correct"])
-    print(f"\n{'='*40}")
-    print(f"Results: {correct}/{len(results)} ({100*correct/len(results):.1f}%)")
+    print(f"\nResults: {correct}/{len(results)} ({100*correct/len(results):.1f}%)")
 
     for r in results:
-        status = "🥰" if r["correct"] else "💀"
+        status = "✓" if r["correct"] else "✗"
         if task_type == SingleTask:
             print(f"  {status} {r['id']} ({r['provider']}): {r['input'][:25]}... → {r['extracted_answer']}")
         else:
@@ -1149,8 +363,7 @@ def quick_test(cases: List[dict], task_type: type = SingleTask, n: int = None) -
     return results
 
 
-def analyze(results: List[dict]) -> dict:
-    """Unified analysis for both single and composite results."""
+def analyze(results):
     is_composite = "target_count" in results[0] if results else False
 
     by_model = defaultdict(lambda: {"correct": 0, "total": 0, "off_by": []})
@@ -1174,571 +387,40 @@ def analyze(results: List[dict]) -> dict:
             "accuracy": d["correct"]/d["total"] if d["total"] > 0 else 0,
             "correct": d["correct"],
             "total": d["total"],
-            "avg_off_by": sum(d["off_by"])/len(d["off_by"]) if d["off_by"] else None
         } for m, d in by_model.items()},
         "by_difficulty": {m: {diff: {
             "accuracy": d["correct"]/d["total"] if d["total"] > 0 else 0,
-            "correct": d["correct"],
-            "total": d["total"]
         } for diff, d in diffs.items()} for m, diffs in by_diff.items()},
-        "failures": [r for r in results if not r["correct"]][:10]
     }
 
-
-def print_analysis(results: List[dict]):
-    """Print formatted analysis of results."""
-    analysis = analyze(results)
-
-    print("\n=== Accuracy by Model ===")
-    for model, stats in analysis["by_model"].items():
-        pct = stats["accuracy"] * 100
-        off_str = f", avg off: {stats['avg_off_by']:.1f}" if stats["avg_off_by"] else ""
-        print(f"{model}: {pct:.1f}% ({stats['correct']}/{stats['total']}){off_str}")
-
-    print("\n=== Accuracy by Difficulty ===")
-    for model, diffs in analysis["by_difficulty"].items():
-        print(f"\n{model}:")
-        for diff, stats in sorted(diffs.items()):
-            pct = stats["accuracy"] * 100
-            print(f"  {diff}: {pct:.1f}% ({stats['correct']}/{stats['total']})")
-
-
-print("Unified eval framework loaded.")
-print(f"Available: quick_test(cases), run_eval(cases), analyze(results)")
+print("Eval framework loaded.")
 #+end_src
 
-#+RESULTS:
-: Unified eval framework loaded.
-: Available: quick_test(cases), run_eval(cases), analyze(results)
-
-* Quick Start
-
-Run evaluations with minimal code using the unified framework.
+* Run Evaluation
 
 #+begin_src python :async
-# === SINGLE EXPRESSION TESTS ===
-# quick_test(test_cases, SingleTask, n=5)
+# Quick test
+# results = quick_test(test_cases, SingleTask, n=5)
+# results = quick_test(composite_cases, CompositeTask, n=5)
 
-# === COMPOSITE TESTS (8 problems, count-based) ===
-# quick_test(composite_cases, CompositeTask, n=5)
-
-# === FULL RUN (async) ===
-# results = asyncio.run(run_eval(test_cases, SingleTask))
+# Full run
 results = asyncio.run(run_eval(composite_cases, CompositeTask))
 
-# === ANALYSIS ===
-print_analysis(results)
-
-# === SAVE/LOAD ===
-with open("results.json", "w") as f: json.dump(results, f, indent=2)
-# with open("results.json", "r") as f: results = json.load(f)
-#+end_src
-
-* Run and Analyze Composite Tests
-
-#+begin_src python :async
-# Quick test with unified framework
-composite_results = quick_test(composite_cases, CompositeTask, n=5)
-
-# Save results
-with open("composite_sample_results.json", "w") as f:
-    json.dump(composite_results, f, indent=2)
-
-# Full analysis
-print_analysis(composite_results)
-
-# Random baseline comparison
-n_problems = CFG.composite_group_size
-print(f"\nRandom baseline for {n_problems} problems: {100 * 1/(2**n_problems+1):.1f}%")
-#+end_src
-
-#+RESULTS:
-#+begin_example
-Running CompositeTask on 5 cases...
-Both GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY.
-Both GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY.
-Both GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY.
-Both GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY.
-Both GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY.
-
-========================================
-Results: 2/15 (13.3%)
-  💀 comp_001 (openai): count=4 (target: 2)
-  🥰 comp_001 (anthropic): count=2 (target: 2)
-  🥰 comp_001 (google): count=2 (target: 2)
-  💀 comp_002 (openai): count=6 (target: 7)
-  💀 comp_002 (anthropic): count=8 (target: 7)
-  💀 comp_002 (google): count=4 (target: 7)
-  💀 comp_003 (openai): count=4 (target: 5)
-  💀 comp_003 (anthropic): count=4 (target: 5)
-  💀 comp_003 (google): count=1 (target: 5)
-  💀 comp_004 (openai): count=4 (target: 5)
-  💀 comp_004 (anthropic): count=-1 (target: 5)
-  💀 comp_004 (google): count=6 (target: 5)
-  💀 comp_005 (openai): count=6 (target: 3)
-  💀 comp_005 (anthropic): count=-1 (target: 3)
-  💀 comp_005 (google): count=2 (target: 3)
-
-=== Accuracy by Model ===
-gpt-5.1: 0.0% (0/5), avg off: 1.6
-claude-opus-4-5-20251101: 20.0% (1/5), avg off: 1.0
-gemini-3-pro-preview: 20.0% (1/5), avg off: 2.2
-
-=== Accuracy by Difficulty ===
-
-gpt-5.1:
-  1. easy: 0.0% (0/1)
-  2. medium: 0.0% (0/1)
-  3. hard: 0.0% (0/1)
-  4. lunatic: 0.0% (0/1)
-  5. extra: 0.0% (0/1)
-
-claude-opus-4-5-20251101:
-  1. easy: 100.0% (1/1)
-  2. medium: 0.0% (0/1)
-  3. hard: 0.0% (0/1)
-  4. lunatic: 0.0% (0/1)
-  5. extra: 0.0% (0/1)
-
-gemini-3-pro-preview:
-  1. easy: 100.0% (1/1)
-  2. medium: 0.0% (0/1)
-  3. hard: 0.0% (0/1)
-  4. lunatic: 0.0% (0/1)
-  5. extra: 0.0% (0/1)
-
-Random baseline for 8 problems: 0.4%
-#+end_example
-
-* Set up Analysis 
-
-#+begin_src python
-def analyze_results(results: List[dict]) -> dict:
-    """Compute accuracy metrics from results."""
-    from collections import defaultdict
-
-    # Overall accuracy by model
-    by_model = defaultdict(lambda: {"correct": 0, "total": 0})
-    for r in results:
-        by_model[r["model"]]["total"] += 1
-        if r["correct"]:
-            by_model[r["model"]]["correct"] += 1
-
-    # Accuracy by difficulty
-    by_diff = defaultdict(lambda: defaultdict(lambda: {"correct": 0, "total": 0}))
-    for r in results:
-        by_diff[r["model"]][r["difficulty"]]["total"] += 1
-        if r["correct"]:
-            by_diff[r["model"]][r["difficulty"]]["correct"] += 1
-
-    # Failure examples
-    failures = [r for r in results if not r["correct"]]
-
-    return {
-        "by_model": {m: {
-            "accuracy": d["correct"]/d["total"] if d["total"] > 0 else 0,
-            "correct": d["correct"],
-            "total": d["total"]
-        } for m, d in by_model.items()},
-        "by_difficulty": {m: {diff: {"accuracy": d["correct"]/d["total"] if d["total"] > 0 else 0,
-                                     "correct": d["correct"], "total": d["total"]}
-                              for diff, d in diffs.items()}
-                          for m, diffs in by_diff.items()},
-        "failures": failures[:10]
-    }
-
-
-# Analyze sample results (or load from file for full results)
-if 'sample_results' in dir() and sample_results:
-    analysis = analyze_results(sample_results)
-
-    print("=== Accuracy by Model ===")
-    for model, stats in analysis["by_model"].items():
-        pct = stats["accuracy"] * 100
-        print(f"{model}: {pct:.1f}% ({stats['correct']}/{stats['total']})")
-
-    print("\n=== Accuracy by Difficulty ===")
-    for model, diffs in analysis["by_difficulty"].items():
-        print(f"\n{model}:")
-        for diff, stats in sorted(diffs.items()):
-            pct = stats["accuracy"] * 100
-            print(f"  {diff}: {pct:.1f}% ({stats['correct']}/{stats['total']})")
-
-    if analysis["failures"]:
-        print("\n=== Sample Failures ===")
-        for f in analysis["failures"][:3]:
-            print(f"\n{f['model']}: {f['input'][:50]}...")
-            print(f"  Expected: {f['target']}, Got: {f['extracted_answer']}")
-#+end_src
-
-* Batch API: Prepare Jobs
-
-Submit batch jobs to all three providers for the full evaluation.
-
-Uses an append-only JSONL log for robustness - never overwrites, easy to recover.
-
-#+begin_src python
-
-import tempfile
-from openai import OpenAI
-from anthropic import Anthropic
-from google import genai
-
-BATCH_LOG = "batch_log.jsonl"
-
-
-def log_batch_event(event: str, provider: str, batch_id: str, **data):
-    """Append an event to the batch log."""
-    entry = {
-        "timestamp": datetime.now().isoformat(),
-        "event": event,
-        "provider": provider,
-        "batch_id": batch_id,
-        ,**data
-    }
-    with open(BATCH_LOG, "a") as f:
-        f.write(json.dumps(entry) + "\n")
-
-
-def get_latest_batches() -> dict:
-    """Read log and return most recent batch per provider (that isn't completed)."""
-    batches = {}  # provider -> {batch_id, model, status, ...}
-    try:
-        with open(BATCH_LOG, "r") as f:
-            for line in f:
-                if not line.strip():
-                    continue
-                entry = json.loads(line)
-                provider = entry["provider"]
-                if entry["event"] == "submitted":
-                    batches[provider] = {
-                        "batch_id": entry["batch_id"],
-                        "model": entry.get("model"),
-                        "status": "submitted"
-                    }
-                elif entry["event"] == "status":
-                    if provider in batches and batches[provider]["batch_id"] == entry["batch_id"]:
-                        batches[provider]["status"] = entry["status"]
-                elif entry["event"] == "completed":
-                    if provider in batches and batches[provider]["batch_id"] == entry["batch_id"]:
-                        batches[provider]["status"] = "completed"
-                        batches[provider]["results"] = entry.get("results", [])
-    except FileNotFoundError:
-        pass
-    return batches
-
-
-def create_openai_batch(cases: List[dict], model: str = MODELS["openai"]) -> str:
-    """Create and submit OpenAI batch job. Returns batch_id."""
-    client = OpenAI()
-
-    # Create JSONL file
-    jsonl_content = ""
-    for case in cases:
-        prompt = PROMPT_TEMPLATE.format(expression=case["input"])
-        request = {
-            "custom_id": case["id"],
-            "method": "POST",
-            "url": "/v1/chat/completions",
-            "body": {
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0
-            }
-        }
-        jsonl_content += json.dumps(request) + "\n"
-
-    # Upload file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
-        f.write(jsonl_content)
-        temp_path = f.name
-
-    with open(temp_path, 'rb') as f:
-        file_obj = client.files.create(file=f, purpose="batch")
-
-    # Create batch
-    batch = client.batches.create(
-        input_file_id=file_obj.id,
-        endpoint="/v1/chat/completions",
-        completion_window="24h"
-    )
-    return batch.id
-
-
-def create_anthropic_batch(cases: List[dict], model: str = MODELS["anthropic"]) -> str:
-    """Create and submit Anthropic batch job. Returns batch_id."""
-    client = Anthropic()
-
-    requests_list = []
-    for case in cases:
-        prompt = PROMPT_TEMPLATE.format(expression=case["input"])
-        requests_list.append({
-            "custom_id": case["id"],
-            "params": {
-                "model": model,
-                "max_tokens": 64000,
-                "messages": [{"role": "user", "content": prompt}]
-            }
-        })
-
-    batch = client.messages.batches.create(requests=requests_list)
-    return batch.id
-
-
-def create_gemini_batch(cases: List[dict], model: str = MODELS["google"]) -> str:
-    """Create Gemini batch job using SDK. Returns batch job name."""
-    client = genai.Client()
-
-    # Build inline requests
-    inline_requests = []
-    for case in cases:
-        prompt = PROMPT_TEMPLATE.format(expression=case["input"])
-        inline_requests.append({
-            "contents": [{"parts": [{"text": prompt}], "role": "user"}]
-        })
-
-    batch_job = client.batches.create(
-        model=f"models/{model}",
-        src=inline_requests,
-        config={"display_name": f"lof-eval-{datetime.now().strftime('%Y%m%d-%H%M%S')}"},
-    )
-    return batch_job.name
-    
-#+end_src
-
-* Submit Jobs
-#+begin_src python :async
-# Submit all batches (appends to log, never overwrites)
-print(f"Submitting batches for {len(test_cases)} test cases...")
-
-if OPENAI_API_KEY:
-    print("  Submitting OpenAI batch...")
-    try:
-        batch_id = create_openai_batch(test_cases)
-        log_batch_event("submitted", "openai", batch_id, model=MODELS["openai"], n_cases=len(test_cases))
-        print(f"    OpenAI batch ID: {batch_id}")
-    except Exception as e:
-        print(f"    OpenAI batch failed: {e}")
-
-if ANTHROPIC_API_KEY:
-    print("  Submitting Anthropic batch...")
-    try:
-        batch_id = create_anthropic_batch(test_cases)
-        log_batch_event("submitted", "anthropic", batch_id, model=MODELS["anthropic"], n_cases=len(test_cases))
-        print(f"    Anthropic batch ID: {batch_id}")
-    except Exception as e:
-        print(f"    Anthropic batch failed: {e}")
-
-if GEMINI_API_KEY:
-    print("  Submitting Gemini batch...")
-    try:
-        batch_id = create_gemini_batch(test_cases)
-        log_batch_event("submitted", "google", batch_id, model=MODELS["google"], n_cases=len(test_cases))
-        print(f"    Gemini batch ID: {batch_id}")
-    except Exception as e:
-        print(f"    Gemini batch failed: {e}")
-
-print(f"\nBatch events appended to {BATCH_LOG}")
-#+end_src
-
-* Batch API: Check Status
-
-Poll batch job status and download results when complete.
-
-#+begin_src python :async
-def check_openai_batch(batch_id: str) -> Tuple[str, Optional[List[dict]]]:
-    """Check OpenAI batch status. Returns (status, results_or_none)."""
-    client = OpenAI()
-    batch = client.batches.retrieve(batch_id)
-    if batch.status == "completed":
-        # Download results
-        output_file = client.files.content(batch.output_file_id)
-        results = []
-        for line in output_file.text.strip().split("\n"):
-            result = json.loads(line)
-            results.append({
-                "id": result["custom_id"],
-                "response": result["response"]["body"]["choices"][0]["message"]["content"],
-                "provider": "openai"
-            })
-        return "completed", results
-    return batch.status, None
-
-
-def check_anthropic_batch(batch_id: str) -> Tuple[str, Optional[List[dict]]]:
-    """Check Anthropic batch status. Returns (status, results_or_none)."""
-    client = Anthropic()
-    batch = client.messages.batches.retrieve(batch_id)
-    if batch.processing_status == "ended":
-        results = []
-        for result in client.messages.batches.results(batch_id):
-            results.append({
-                "id": result.custom_id,
-                "response": result.result.message.content[0].text,
-                "provider": "anthropic"
-            })
-        return "completed", results
-    return batch.processing_status, None
-
-
-def check_gemini_batch(batch_name: str) -> Tuple[str, Optional[List[dict]]]:
-    """Check Gemini batch status using SDK. Returns (status, results_or_none)."""
-    client = genai.Client()
-    batch = client.batches.get(name=batch_name)
-
-    if batch.state.name != "JOB_STATE_SUCCEEDED":
-        return batch.state.name.lower(), None
-
-    # Batch complete - extract inline results
-    results = []
-    if batch.dest and batch.dest.inlined_responses:
-        for i, inline_resp in enumerate(batch.dest.inlined_responses):
-            if inline_resp.response:
-                try:
-                    text = inline_resp.response.text
-                except AttributeError:
-                    text = str(inline_resp.response)
-            elif inline_resp.error:
-                text = f"ERROR: {inline_resp.error}"
-            else:
-                text = "ERROR: No response"
-            results.append({
-                "id": f"lof_{i+1:03d}",  # Match original case IDs
-                "response": text,
-                "provider": "google"
-            })
-
-    return "completed", results
-
-
-# Load latest batches from log
-batches = get_latest_batches()
-
-if not batches:
-    print("No batches found in log. Run the submit cell first.")
-else:
-    print("Checking batch status...")
-    all_complete = True
-
-    for provider, info in batches.items():
-        if info["status"] == "completed":
-            print(f"  {provider}: completed (already)")
-            continue
-
-        batch_id = info["batch_id"]
-        try:
-            if provider == "openai" and OPENAI_API_KEY:
-                status, results = check_openai_batch(batch_id)
-            elif provider == "anthropic" and ANTHROPIC_API_KEY:
-                status, results = check_anthropic_batch(batch_id)
-            elif provider == "google" and GEMINI_API_KEY:
-                status, results = check_gemini_batch(batch_id)
-            else:
-                print(f"  {provider}: skipped (no API key)")
-                continue
-
-            print(f"  {provider}: {status}")
-
-            if results:
-                log_batch_event("completed", provider, batch_id, results=results)
-            elif status != info.get("status"):
-                log_batch_event("status", provider, batch_id, status=status)
-
-            if status != "completed":
-                all_complete = False
-
-        except Exception as e:
-            print(f"  {provider}: error - {e}")
-            all_complete = False
-
-    if all_complete:
-        print("\nAll batches complete! Run the next cell to process results.")
-    else:
-        print("\nSome batches still processing. Re-run this cell to check again.")
-#+end_src
-
-* Process Batch Results
-
-Combine batch results into unified format.
-
-#+begin_src python
-# Load completed batches from log
-batches = get_latest_batches()
-
-# Build case lookup
-case_lookup = {c["id"]: c for c in test_cases}
-
-# Process all results
-all_results = []
-for provider, info in batches.items():
-    if info["status"] != "completed" or "results" not in info:
-        print(f"Warning: No results for {provider} (status: {info['status']})")
-        continue
-
-    for r in info["results"]:
-        case = case_lookup.get(r["id"])
-        if not case:
-            print(f"Warning: Unknown case ID {r['id']}")
-            continue
-        response_text = r.get("response") or ""
-        answer = extract_answer(response_text)
-        all_results.append({
-            "id": r["id"],
-            "input": case["input"],
-            "target": case["target"],
-            "difficulty": case["difficulty"],
-            "depth": case.get("depth", 0),
-            "provider": provider,
-            "model": info["model"],
-            "response": response_text,
-            "extracted_answer": answer,
-            "correct": answer == case["target"]
-        })
-
-# Save full results
-output = {
-    "metadata": {
-        "timestamp": datetime.now().isoformat(),
-        "n_cases": len(test_cases),
-        "prompt_template": PROMPT_TEMPLATE
-    },
-    "results": all_results
-}
-
+# Save
 with open("results.json", "w") as f:
-    json.dump(output, f, indent=2)
-
-print(f"Saved {len(all_results)} results to results.json")
+    json.dump(results, f, indent=2)
 #+end_src
 
-* Load and Analyze Saved Results
+* Analyze Results
 
 #+begin_src python
-# Load previously saved results
 with open("results.json", "r") as f:
-    saved = json.load(f)
+    results = json.load(f)
 
-print(f"Loaded {len(saved['results'])} results from {saved['metadata']['timestamp']}")
-analysis = analyze_results(saved['results'])
+analysis = analyze(results)
 
-# Print full analysis
-print("\n=== FULL RESULTS ===\n")
 print("=== Accuracy by Model ===")
 for model, stats in analysis["by_model"].items():
     pct = stats["accuracy"] * 100
     print(f"{model}: {pct:.1f}% ({stats['correct']}/{stats['total']})")
-
-print("\n=== Accuracy by Difficulty ===")
-for model, diffs in analysis["by_difficulty"].items():
-    print(f"\n{model}:")
-    for diff, stats in sorted(diffs.items()):
-        pct = stats["accuracy"] * 100
-        print(f"  {diff}: {pct:.1f}% ({stats['correct']}/{stats['total']})")
-
-if analysis["failures"]:
-    print("\n=== Sample Failures ===")
-    for f in analysis["failures"][:3]:
-        print(f"\n{f['model']}: {f['input'][:60]}...")
-        print(f"  Expected: {f['target']}, Got: {f['extracted_answer']}")
 #+end_src
-
