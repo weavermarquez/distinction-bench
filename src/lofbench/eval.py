@@ -81,7 +81,7 @@ Where each E# is either "marked" or "unmarked", and total_marked is the count of
 # =============================================================================
 
 def extract_answer(response: str | None) -> str:
-    """Extract the final answer from LLM response. Returns '()' or 'void' or 'unknown'."""
+    """Extract the final answer from LLM response. Returns 'marked', 'unmarked', or 'unknown'."""
     if response is None:
         return "unknown"
 
@@ -89,16 +89,16 @@ def extract_answer(response: str | None) -> str:
     match = re.search(pattern, response, re.IGNORECASE)
     if match:
         ans = match.group(1).lower()
-        return "()" if ans in ("marked", "()") else "void"
+        return "marked" if ans in ("marked", "()") else "unmarked"
 
     response_lower = response.lower()
     mark_pos = max(response_lower.rfind("()"), response_lower.rfind("marked"))
     void_pos = max(response_lower.rfind("void"), response_lower.rfind("unmarked"))
 
     if mark_pos > void_pos:
-        return "()"
+        return "marked"
     elif void_pos > mark_pos:
-        return "void"
+        return "unmarked"
     return "unknown"
 
 
@@ -202,8 +202,7 @@ class CompositeTask:
 
     @staticmethod
     def make_result(case: dict, provider: str, model: str, response: str, answer: dict) -> dict:
-        # Convert targets to "marked"/"unmarked" format
-        target_items = ["marked" if t == "()" else "unmarked" for t in case["targets"]]
+        target_items = case["targets"]  # Already "marked"/"unmarked"
         extracted_items = answer["items"]
 
         # Compute per-item correctness

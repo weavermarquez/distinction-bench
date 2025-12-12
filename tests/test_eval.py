@@ -7,22 +7,22 @@ class TestExtractAnswer:
     """Test answer extraction from LLM responses."""
 
     def test_extract_tagged_marked(self):
-        assert extract_answer("<answer>marked</answer>") == "()"
-        assert extract_answer("<answer>MARKED</answer>") == "()"
-        assert extract_answer("<answer>()</answer>") == "()"
+        assert extract_answer("<answer>marked</answer>") == "marked"
+        assert extract_answer("<answer>MARKED</answer>") == "marked"
+        assert extract_answer("<answer>()</answer>") == "marked"
 
     def test_extract_tagged_unmarked(self):
-        assert extract_answer("<answer>unmarked</answer>") == "void"
-        assert extract_answer("<answer>void</answer>") == "void"
-        assert extract_answer("<answer>VOID</answer>") == "void"
+        assert extract_answer("<answer>unmarked</answer>") == "unmarked"
+        assert extract_answer("<answer>void</answer>") == "unmarked"
+        assert extract_answer("<answer>VOID</answer>") == "unmarked"
 
     def test_extract_fallback_marked(self):
-        assert extract_answer("The final answer is marked.") == "()"
-        assert extract_answer("This reduces to ()") == "()"
+        assert extract_answer("The final answer is marked.") == "marked"
+        assert extract_answer("This reduces to ()") == "marked"
 
     def test_extract_fallback_unmarked(self):
-        assert extract_answer("The expression is void.") == "void"
-        assert extract_answer("The result is void") == "void"
+        assert extract_answer("The expression is void.") == "unmarked"
+        assert extract_answer("The result is void") == "unmarked"
 
     def test_extract_none(self):
         assert extract_answer(None) == "unknown"

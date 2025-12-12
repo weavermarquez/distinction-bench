@@ -152,9 +152,9 @@ class TestDataset:
             assert "id" in c
             assert "input" in c
             assert "target" in c
-            assert c["target"] in ("()", "void")
+            assert c["target"] in ("marked", "unmarked")
             # Verify target is correct
-            assert canonical_string(c["input"]) == c["target"]
+            assert evaluate(c["input"]) == c["target"]
 
     def test_deterministic(self):
         c1 = generate_test_cases(n=10, seed=42)

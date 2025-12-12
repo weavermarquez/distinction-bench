@@ -260,7 +260,8 @@ def generate_test_cases(n: int = 4000, seed: int = 20251211) -> list[dict]:
         depth = string_depth(input_str)
 
         # O(n) simplification directly on string
-        target, steps = simplify_string(input_str)
+        canonical, steps = simplify_string(input_str)
+        target = "marked" if canonical == "()" else "unmarked"
 
         cases.append({
             "id": f"lof_{i+1:03d}",
@@ -320,12 +321,12 @@ def generate_composite_test_cases(
             )
             if not expr:
                 expr = "()"  # Ensure non-empty
-            target = canonical_string(expr)
+            target = evaluate(expr)
             expressions.append(expr)
             targets.append(target)
 
-        # Count how many simplify to ()
-        mark_count = sum(1 for t in targets if t == "()")
+        # Count how many simplify to marked
+        mark_count = sum(1 for t in targets if t == "marked")
 
         cases.append({
             "id": f"comp_{i+1:03d}",
