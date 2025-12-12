@@ -214,12 +214,18 @@ def extract_composite_answer(response: str, n: int) -> int:
     return -1
 #+end_src
 
+#+RESULTS:
+
 * Eval Framework
 
 #+begin_src python
-from openai import AsyncOpenAI
-from anthropic import AsyncAnthropic
+import tempfile
+import time
+from openai import OpenAI, AsyncOpenAI
+from anthropic import Anthropic, AsyncAnthropic
 from google import genai
+
+BATCH_LOG = "batch_log.jsonl"
 
 
 class SingleTask:
@@ -280,7 +286,9 @@ class CompositeTask:
         }
 
 
-async def eval_openai(prompt: str, model: str) -> str:
+# === LIVE EVAL (for quick_test) ===
+
+async def eval_openai_live(prompt: str, model: str) -> str:
     async with AsyncOpenAI() as client:
         response = await client.chat.completions.create(
             model=model,
@@ -290,7 +298,7 @@ async def eval_openai(prompt: str, model: str) -> str:
     return response.choices[0].message.content
 
 
-async def eval_anthropic(prompt: str, model: str) -> str:
+async def eval_anthropic_live(prompt: str, model: str) -> str:
     client = AsyncAnthropic()
     async with client.messages.stream(
         model=model,
@@ -301,71 +309,249 @@ async def eval_anthropic(prompt: str, model: str) -> str:
     return message.content[0].text
 
 
-async def eval_google(prompt: str, model: str) -> str:
+async def eval_google_live(prompt: str, model: str) -> str:
     async with genai.Client().aio as client:
         response = await client.models.generate_content(model=model, contents=prompt)
     return response.text
 
 
-EVAL_FNS = {
-    "openai": eval_openai,
-    "anthropic": eval_anthropic,
-    "google": eval_google
+LIVE_EVAL_FNS = {
+    "openai": eval_openai_live,
+    "anthropic": eval_anthropic_live,
+    "google": eval_google_live
 }
 
 
-async def run_eval(cases, task_type=SingleTask, providers=None, n=None):
-    if providers is None:
-        providers = CFG.available_providers
-    if n is not None:
-        cases = cases[:n]
+# === BATCH EVAL (for run_eval) ===
 
-    tasks = []
-    task_info = []
+def log_batch_event(event: str, provider: str, batch_id: str, **data):
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "event": event,
+        "provider": provider,
+        "batch_id": batch_id,
+        **data
+    }
+    with open(BATCH_LOG, "a") as f:
+        f.write(json.dumps(entry) + "\n")
 
+
+def create_openai_batch(cases, task_type, model: str) -> str:
+    client = OpenAI()
+    jsonl_content = ""
     for case in cases:
         prompt = task_type.format_prompt(case)
-        for provider in providers:
-            model = CFG.models[provider]
-            fn = EVAL_FNS[provider]
-            tasks.append(fn(prompt, model))
-            task_info.append((case, provider, model))
+        request = {
+            "custom_id": case["id"],
+            "method": "POST",
+            "url": "/v1/chat/completions",
+            "body": {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0
+            }
+        }
+        jsonl_content += json.dumps(request) + "\n"
 
-    responses = await asyncio.gather(*tasks, return_exceptions=True)
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
+        f.write(jsonl_content)
+        temp_path = f.name
 
+    with open(temp_path, 'rb') as f:
+        file_obj = client.files.create(file=f, purpose="batch")
+
+    batch = client.batches.create(
+        input_file_id=file_obj.id,
+        endpoint="/v1/chat/completions",
+        completion_window="24h"
+    )
+    return batch.id
+
+
+def create_anthropic_batch(cases, task_type, model: str) -> str:
+    client = Anthropic()
+    requests_list = []
+    for case in cases:
+        prompt = task_type.format_prompt(case)
+        requests_list.append({
+            "custom_id": case["id"],
+            "params": {
+                "model": model,
+                "max_tokens": 64000,
+                "messages": [{"role": "user", "content": prompt}]
+            }
+        })
+    batch = client.messages.batches.create(requests=requests_list)
+    return batch.id
+
+
+def create_google_batch(cases, task_type, model: str) -> str:
+    client = genai.Client()
+    inline_requests = []
+    for case in cases:
+        prompt = task_type.format_prompt(case)
+        inline_requests.append({
+            "contents": [{"parts": [{"text": prompt}], "role": "user"}]
+        })
+    batch_job = client.batches.create(
+        model=f"models/{model}",
+        src=inline_requests,
+        config={"display_name": f"lof-eval-{datetime.now().strftime('%Y%m%d-%H%M%S')}"},
+    )
+    return batch_job.name
+
+
+def check_openai_batch(batch_id: str):
+    client = OpenAI()
+    batch = client.batches.retrieve(batch_id)
+    if batch.status == "completed":
+        output_file = client.files.content(batch.output_file_id)
+        results = []
+        for line in output_file.text.strip().split("\n"):
+            result = json.loads(line)
+            results.append({
+                "id": result["custom_id"],
+                "response": result["response"]["body"]["choices"][0]["message"]["content"],
+            })
+        return "completed", results
+    return batch.status, None
+
+
+def check_anthropic_batch(batch_id: str):
+    client = Anthropic()
+    batch = client.messages.batches.retrieve(batch_id)
+    if batch.processing_status == "ended":
+        results = []
+        for result in client.messages.batches.results(batch_id):
+            results.append({
+                "id": result.custom_id,
+                "response": result.result.message.content[0].text,
+            })
+        return "completed", results
+    return batch.processing_status, None
+
+
+def check_google_batch(batch_name: str):
+    client = genai.Client()
+    batch = client.batches.get(name=batch_name)
+    if batch.state.name != "JOB_STATE_SUCCEEDED":
+        return batch.state.name.lower(), None
     results = []
-    for (case, provider, model), resp in zip(task_info, responses):
-        if isinstance(resp, Exception):
-            response, answer = f"ERROR: {resp}", None
-        else:
-            response = resp
-            answer = task_type.extract(response, case)
-        results.append(task_type.make_result(case, provider, model, response, answer))
+    if batch.dest and batch.dest.inlined_responses:
+        for i, inline_resp in enumerate(batch.dest.inlined_responses):
+            text = inline_resp.response.text if inline_resp.response else f"ERROR: {inline_resp.error}"
+            results.append({"id": f"idx_{i}", "response": text})
+    return "completed", results
 
-    return results
 
+BATCH_CREATE_FNS = {
+    "openai": create_openai_batch,
+    "anthropic": create_anthropic_batch,
+    "google": create_google_batch,
+}
+
+BATCH_CHECK_FNS = {
+    "openai": check_openai_batch,
+    "anthropic": check_anthropic_batch,
+    "google": check_google_batch,
+}
+
+
+# === MAIN FUNCTIONS ===
 
 def quick_test(cases, task_type=SingleTask, n=None):
+    """Live API calls for quick testing."""
     n = n or CFG.sample_size
-    print(f"Running {task_type.__name__} on {n} cases...")
-    results = asyncio.run(run_eval(cases, task_type, n=n))
+    cases = cases[:n]
+    print(f"Running {task_type.__name__} on {n} cases (live)...")
 
+    async def _run():
+        tasks = []
+        task_info = []
+        for case in cases:
+            prompt = task_type.format_prompt(case)
+            for provider in CFG.available_providers:
+                model = CFG.models[provider]
+                fn = LIVE_EVAL_FNS[provider]
+                tasks.append(fn(prompt, model))
+                task_info.append((case, provider, model))
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+        results = []
+        for (case, provider, model), resp in zip(task_info, responses):
+            if isinstance(resp, Exception):
+                response, answer = f"ERROR: {resp}", None
+            else:
+                response = resp
+                answer = task_type.extract(response, case)
+            results.append(task_type.make_result(case, provider, model, response, answer))
+        return results
+
+    results = asyncio.run(_run())
     correct = sum(1 for r in results if r["correct"])
     print(f"\nResults: {correct}/{len(results)} ({100*correct/len(results):.1f}%)")
-
     for r in results:
         status = "✓" if r["correct"] else "✗"
         if task_type == SingleTask:
             print(f"  {status} {r['id']} ({r['provider']}): {r['input'][:25]}... → {r['extracted_answer']}")
         else:
             print(f"  {status} {r['id']} ({r['provider']}): count={r['extracted_answer']} (target: {r['target_count']})")
-
     return results
+
+
+def run_eval(cases, task_type=SingleTask, providers=None, poll_interval=60):
+    """Batch API calls. Submits jobs, polls until complete, returns results."""
+    if providers is None:
+        providers = CFG.available_providers
+
+    print(f"Submitting batch jobs for {len(cases)} cases...")
+    batch_ids = {}
+
+    for provider in providers:
+        model = CFG.models[provider]
+        try:
+            batch_id = BATCH_CREATE_FNS[provider](cases, task_type, model)
+            batch_ids[provider] = batch_id
+            log_batch_event("submitted", provider, batch_id, model=model, n_cases=len(cases))
+            print(f"  {provider}: {batch_id}")
+        except Exception as e:
+            print(f"  {provider}: FAILED - {e}")
+
+    print(f"\nPolling for completion (every {poll_interval}s)...")
+    completed = {}
+    while len(completed) < len(batch_ids):
+        time.sleep(poll_interval)
+        for provider, batch_id in batch_ids.items():
+            if provider in completed:
+                continue
+            try:
+                status, results = BATCH_CHECK_FNS[provider](batch_id)
+                if results:
+                    completed[provider] = results
+                    log_batch_event("completed", provider, batch_id)
+                    print(f"  {provider}: completed ({len(results)} results)")
+                else:
+                    print(f"  {provider}: {status}")
+            except Exception as e:
+                print(f"  {provider}: error - {e}")
+
+    # Build final results
+    case_lookup = {c["id"]: c for c in cases}
+    all_results = []
+    for provider, batch_results in completed.items():
+        model = CFG.models[provider]
+        for r in batch_results:
+            case = case_lookup.get(r["id"])
+            if not case:
+                continue
+            response = r["response"]
+            answer = task_type.extract(response, case)
+            all_results.append(task_type.make_result(case, provider, model, response, answer))
+
+    return all_results
 
 
 def analyze(results):
     is_composite = "target_count" in results[0] if results else False
-
     by_model = defaultdict(lambda: {"correct": 0, "total": 0, "off_by": []})
     by_diff = defaultdict(lambda: defaultdict(lambda: {"correct": 0, "total": 0}))
 
@@ -377,7 +563,6 @@ def analyze(results):
         elif is_composite and r["extracted_answer"] is not None and r["extracted_answer"] >= 0:
             off = abs(r["extracted_answer"] - r["target_count"])
             by_model[model]["off_by"].append(off)
-
         by_diff[model][r["difficulty"]]["total"] += 1
         if r["correct"]:
             by_diff[model][r["difficulty"]]["correct"] += 1
@@ -394,33 +579,51 @@ def analyze(results):
     }
 
 print("Eval framework loaded.")
+print("  quick_test(cases, task_type) - live API calls")
+print("  run_eval(cases, task_type)   - batch API calls")
 #+end_src
+
+#+RESULTS:
 
 * Run Evaluation
 
-#+begin_src python :async
-# Quick test
-# results = quick_test(test_cases, SingleTask, n=5)
-# results = quick_test(composite_cases, CompositeTask, n=5)
+** Quick Test (live calls)
 
-# Full run
-results = asyncio.run(run_eval(composite_cases, CompositeTask))
+#+begin_src python
+results = quick_test(test_cases, SingleTask, n=5)
+with open("sample_results.json", "w") as f:
+    json.dump(results, f, indent=2)
+#+end_src
 
-# Save
+** Batch Run (batch APIs)
+
+#+begin_src python
+# Full batch run - submits to all providers, polls until complete
+results = run_eval(composite_cases, CompositeTask, poll_interval=60)
 with open("results.json", "w") as f:
     json.dump(results, f, indent=2)
+print(f"Saved {len(results)} results")
 #+end_src
 
 * Analyze Results
 
 #+begin_src python
-with open("results.json", "r") as f:
-    results = json.load(f)
+with open("sample_results.json", "r") as f:
+    data = json.load(f)
+    results = data.get("results", data) if isinstance(data, dict) else data
 
-analysis = analyze(results)
-
-print("=== Accuracy by Model ===")
-for model, stats in analysis["by_model"].items():
-    pct = stats["accuracy"] * 100
-    print(f"{model}: {pct:.1f}% ({stats['correct']}/{stats['total']})")
+if not results:
+    print("No results to analyze")
+else:
+    analysis = analyze(results)
+    print("=== Accuracy by Model ===")
+    for model, stats in analysis["by_model"].items():
+        pct = stats["accuracy"] * 100
+        print(f"{model}: {pct:.1f}% ({stats['correct']}/{stats['total']})")
 #+end_src
+
+#+RESULTS:
+: === Accuracy by Model ===
+: gpt-5.1: 40.0% (2/5)
+: claude-opus-4-5-20251101: 100.0% (5/5)
+: gemini-3-pro-preview: 0.0% (0/5)
