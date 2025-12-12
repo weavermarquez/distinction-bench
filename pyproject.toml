@@ -2,7 +2,7 @@
 name = "lofbench"
 version = "0.1.0"
 description = "Laws of Form benchmark toolkit"
-readme = "README.org"
+readme = {file = "README.org", content-type = "text/plain"}
 license = "MIT"
 requires-python = ">=3.11"
 dependencies = []
