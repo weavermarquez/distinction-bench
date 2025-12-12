@@ -32,20 +32,13 @@ Every well-formed expression reduces to exactly one of two values:
 #+begin_src python
 import os
 import json
-import re
-import asyncio
-from datetime import datetime
 from dataclasses import dataclass, field
-from collections import defaultdict
 from dotenv import load_dotenv
 
-from lofbench import (
-    canonical_string,
-    generate_test_cases,
-    generate_composite_test_cases,
-)
+from lofbench import generate_test_cases, generate_composite_test_cases
+from lofbench.eval import quick_test, run_eval, analyze, SingleTask, CompositeTask
 
-load_dotenv()
+load_dotenv(override=True)
 
 @dataclass
 class Config:
@@ -55,13 +48,12 @@ class Config:
     gemini_key: str = field(default_factory=lambda: os.environ.get("GEMINI_API_KEY", ""))
 
     models: dict = field(default_factory=lambda: {
-        "openai": "gpt-5.1",
+        "openai": "gpt-5.2",
         "anthropic": "claude-opus-4-5-20251101",
         "google": "gemini-3-pro-preview"
     })
 
     sample_size: int = 5
-    composite_group_size: int = 8
     seed: int = 2024
 
     @property
@@ -81,12 +73,6 @@ for p in ["openai", "anthropic", "google"]:
     print(f"  {status} {p}: {CFG.models[p]}")
 #+end_src
 
-#+RESULTS:
-: Setup complete.
-:   ✓ openai: gpt-5.1
-:   ✓ anthropic: claude-opus-4-5-20251101
-:   ✓ google: gemini-3-pro-preview
-
 * Generate Test Cases
 
 #+begin_src python
@@ -96,7 +82,6 @@ composite_cases = generate_composite_test_cases(n_groups=500, group_size=8, seed
 print(f"Generated {len(test_cases)} single test cases")
 print(f"Generated {len(composite_cases)} composite test cases")
 
-# Save
 with open("test_cases.json", "w") as f:
     json.dump(test_cases, f, indent=2)
 with open("composite_test_cases.json", "w") as f:
@@ -113,484 +98,18 @@ with open("composite_test_cases.json", "r") as f:
 print(f"Loaded {len(test_cases)} single, {len(composite_cases)} composite test cases")
 #+end_src
 
-* Prompts
-
-#+begin_src python
-PROMPT_TEMPLATE = """You are an expert in evaluating Laws of Form expressions. Your task is to analyze an expression that represents a structure of distinctions and reduce it to its simplest form using two fundamental axioms.
-
-Here is the expression you need to evaluate:
-
-<expression>
-{expression}
-</expression>
-
-## The form and axioms
-
-#### Axiom 1. The law of calling
-Multiple adjacent boundaries with nothing else inside them condense into one.
-Example: ()() = ()
-
-#### Axiom 2. The law of crossing
-Two nested boundaries with nothing else between them annihilate to void.
-Example: (()) = void
-
-## Your Approach
-
-1. Identify the structure
-2. Look for opportunities to apply axioms (I1 or I2)
-3. Apply axioms iteratively until no more reductions are possible
-4. State the final form
-
-After completing your reduction, provide your final answer:
-
-<answer>X</answer>
-
-where X is either:
-- unmarked (if the expression reduces to void)
-- marked (if structure remains)
-"""
-
-COMPOSITE_PROMPT_TEMPLATE = """You are an expert in evaluating Laws of Form expressions.
-
-Here are the expressions you need to evaluate:
-
-<expressions>
-{expressions}
-</expressions>
-
-#### Axiom 1. The law of calling
-Multiple adjacent boundaries condense into one: ()() = ()
-
-#### Axiom 2. The law of crossing
-Two nested boundaries annihilate to void: (()) = void
-
-For each expression, reduce it and determine if it's marked or unmarked.
-
-<answer>
-E1: marked/unmarked
-E2: marked/unmarked
-...
-total_marked: N
-</answer>
-"""
-
-
-def extract_answer(response: str) -> str:
-    """Extract the final answer from LLM response. Returns '()' or 'void'."""
-    if response is None:
-        return "unknown"
-
-    match = re.search(r'<answer>\s*(marked|unmarked|\(\)|void)\s*</answer>', response, re.IGNORECASE)
-    if match:
-        ans = match.group(1).lower()
-        return "()" if ans in ("marked", "()") else "void"
-
-    response_lower = response.lower()
-    mark_pos = max(response_lower.rfind("()"), response_lower.rfind("marked"))
-    void_pos = max(response_lower.rfind("void"), response_lower.rfind("unmarked"))
-
-    if mark_pos > void_pos:
-        return "()"
-    elif void_pos > mark_pos:
-        return "void"
-    return "unknown"
-
-
-def extract_composite_answer(response: str, n: int) -> int:
-    """Extract the count from LLM response. Returns -1 if unparseable."""
-    if response is None:
-        return -1
-
-    match = re.search(r'<answer>.*?total_marked:\s*(\d+).*?</answer>', response, re.IGNORECASE | re.DOTALL)
-    if match:
-        val = int(match.group(1))
-        return val if 0 <= val <= n else -1
-
-    match = re.search(r'(?:count|total)[_:\s]+(\d+)', response, re.IGNORECASE)
-    if match:
-        val = int(match.group(1))
-        return val if 0 <= val <= n else -1
-
-    return -1
-#+end_src
-
-#+RESULTS:
-
-* Eval Framework
-
-#+begin_src python
-import tempfile
-import time
-from openai import OpenAI, AsyncOpenAI
-from anthropic import Anthropic, AsyncAnthropic
-from google import genai
-
-BATCH_LOG = "batch_log.jsonl"
-
-
-class SingleTask:
-    @staticmethod
-    def format_prompt(case: dict) -> str:
-        return PROMPT_TEMPLATE.format(expression=case["input"])
-
-    @staticmethod
-    def extract(response: str, case: dict):
-        return extract_answer(response)
-
-    @staticmethod
-    def is_correct(answer, case: dict) -> bool:
-        return answer == case["target"]
-
-    @staticmethod
-    def make_result(case: dict, provider: str, model: str, response: str, answer) -> dict:
-        return {
-            "id": case["id"],
-            "input": case["input"],
-            "target": case["target"],
-            "difficulty": case["difficulty"],
-            "provider": provider,
-            "model": model,
-            "response": response,
-            "extracted_answer": answer,
-            "correct": SingleTask.is_correct(answer, case)
-        }
-
-
-class CompositeTask:
-    @staticmethod
-    def format_prompt(case: dict) -> str:
-        lines = [f"{i}. {expr}" for i, expr in enumerate(case["expressions"], 1)]
-        return COMPOSITE_PROMPT_TEMPLATE.format(expressions="\n".join(lines))
-
-    @staticmethod
-    def extract(response: str, case: dict) -> int:
-        return extract_composite_answer(response, case["group_size"])
-
-    @staticmethod
-    def is_correct(answer: int, case: dict) -> bool:
-        return answer == case["count"]
-
-    @staticmethod
-    def make_result(case: dict, provider: str, model: str, response: str, answer: int) -> dict:
-        return {
-            "id": case["id"],
-            "expressions": case["expressions"],
-            "targets": case["targets"],
-            "target_count": case["count"],
-            "difficulty": case["difficulty"],
-            "provider": provider,
-            "model": model,
-            "response": response,
-            "extracted_answer": answer,
-            "correct": CompositeTask.is_correct(answer, case)
-        }
-
-
-# === LIVE EVAL (for quick_test) ===
-
-async def eval_openai_live(prompt: str, model: str) -> str:
-    async with AsyncOpenAI() as client:
-        response = await client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0
-        )
-    return response.choices[0].message.content
-
-
-async def eval_anthropic_live(prompt: str, model: str) -> str:
-    client = AsyncAnthropic()
-    async with client.messages.stream(
-        model=model,
-        max_tokens=16000,
-        messages=[{"role": "user", "content": prompt}]
-    ) as stream:
-        message = await stream.get_final_message()
-    return message.content[0].text
-
-
-async def eval_google_live(prompt: str, model: str) -> str:
-    async with genai.Client().aio as client:
-        response = await client.models.generate_content(model=model, contents=prompt)
-    return response.text
-
-
-LIVE_EVAL_FNS = {
-    "openai": eval_openai_live,
-    "anthropic": eval_anthropic_live,
-    "google": eval_google_live
-}
-
-
-# === BATCH EVAL (for run_eval) ===
-
-def log_batch_event(event: str, provider: str, batch_id: str, **data):
-    entry = {
-        "timestamp": datetime.now().isoformat(),
-        "event": event,
-        "provider": provider,
-        "batch_id": batch_id,
-        **data
-    }
-    with open(BATCH_LOG, "a") as f:
-        f.write(json.dumps(entry) + "\n")
-
-
-def create_openai_batch(cases, task_type, model: str) -> str:
-    client = OpenAI()
-    jsonl_content = ""
-    for case in cases:
-        prompt = task_type.format_prompt(case)
-        request = {
-            "custom_id": case["id"],
-            "method": "POST",
-            "url": "/v1/chat/completions",
-            "body": {
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0
-            }
-        }
-        jsonl_content += json.dumps(request) + "\n"
-
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
-        f.write(jsonl_content)
-        temp_path = f.name
-
-    with open(temp_path, 'rb') as f:
-        file_obj = client.files.create(file=f, purpose="batch")
-
-    batch = client.batches.create(
-        input_file_id=file_obj.id,
-        endpoint="/v1/chat/completions",
-        completion_window="24h"
-    )
-    return batch.id
-
-
-def create_anthropic_batch(cases, task_type, model: str) -> str:
-    client = Anthropic()
-    requests_list = []
-    for case in cases:
-        prompt = task_type.format_prompt(case)
-        requests_list.append({
-            "custom_id": case["id"],
-            "params": {
-                "model": model,
-                "max_tokens": 64000,
-                "messages": [{"role": "user", "content": prompt}]
-            }
-        })
-    batch = client.messages.batches.create(requests=requests_list)
-    return batch.id
-
-
-def create_google_batch(cases, task_type, model: str) -> str:
-    client = genai.Client()
-    inline_requests = []
-    for case in cases:
-        prompt = task_type.format_prompt(case)
-        inline_requests.append({
-            "contents": [{"parts": [{"text": prompt}], "role": "user"}]
-        })
-    batch_job = client.batches.create(
-        model=f"models/{model}",
-        src=inline_requests,
-        config={"display_name": f"lof-eval-{datetime.now().strftime('%Y%m%d-%H%M%S')}"},
-    )
-    return batch_job.name
-
-
-def check_openai_batch(batch_id: str):
-    client = OpenAI()
-    batch = client.batches.retrieve(batch_id)
-    if batch.status == "completed":
-        output_file = client.files.content(batch.output_file_id)
-        results = []
-        for line in output_file.text.strip().split("\n"):
-            result = json.loads(line)
-            results.append({
-                "id": result["custom_id"],
-                "response": result["response"]["body"]["choices"][0]["message"]["content"],
-            })
-        return "completed", results
-    return batch.status, None
-
-
-def check_anthropic_batch(batch_id: str):
-    client = Anthropic()
-    batch = client.messages.batches.retrieve(batch_id)
-    if batch.processing_status == "ended":
-        results = []
-        for result in client.messages.batches.results(batch_id):
-            results.append({
-                "id": result.custom_id,
-                "response": result.result.message.content[0].text,
-            })
-        return "completed", results
-    return batch.processing_status, None
-
-
-def check_google_batch(batch_name: str):
-    client = genai.Client()
-    batch = client.batches.get(name=batch_name)
-    if batch.state.name != "JOB_STATE_SUCCEEDED":
-        return batch.state.name.lower(), None
-    results = []
-    if batch.dest and batch.dest.inlined_responses:
-        for i, inline_resp in enumerate(batch.dest.inlined_responses):
-            text = inline_resp.response.text if inline_resp.response else f"ERROR: {inline_resp.error}"
-            results.append({"id": f"idx_{i}", "response": text})
-    return "completed", results
-
-
-BATCH_CREATE_FNS = {
-    "openai": create_openai_batch,
-    "anthropic": create_anthropic_batch,
-    "google": create_google_batch,
-}
-
-BATCH_CHECK_FNS = {
-    "openai": check_openai_batch,
-    "anthropic": check_anthropic_batch,
-    "google": check_google_batch,
-}
-
-
-# === MAIN FUNCTIONS ===
-
-def quick_test(cases, task_type=SingleTask, n=None):
-    """Live API calls for quick testing."""
-    n = n or CFG.sample_size
-    cases = cases[:n]
-    print(f"Running {task_type.__name__} on {n} cases (live)...")
-
-    async def _run():
-        tasks = []
-        task_info = []
-        for case in cases:
-            prompt = task_type.format_prompt(case)
-            for provider in CFG.available_providers:
-                model = CFG.models[provider]
-                fn = LIVE_EVAL_FNS[provider]
-                tasks.append(fn(prompt, model))
-                task_info.append((case, provider, model))
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
-        results = []
-        for (case, provider, model), resp in zip(task_info, responses):
-            if isinstance(resp, Exception):
-                response, answer = f"ERROR: {resp}", None
-            else:
-                response = resp
-                answer = task_type.extract(response, case)
-            results.append(task_type.make_result(case, provider, model, response, answer))
-        return results
-
-    results = asyncio.run(_run())
-    correct = sum(1 for r in results if r["correct"])
-    print(f"\nResults: {correct}/{len(results)} ({100*correct/len(results):.1f}%)")
-    for r in results:
-        status = "✓" if r["correct"] else "✗"
-        if task_type == SingleTask:
-            print(f"  {status} {r['id']} ({r['provider']}): {r['input'][:25]}... → {r['extracted_answer']}")
-        else:
-            print(f"  {status} {r['id']} ({r['provider']}): count={r['extracted_answer']} (target: {r['target_count']})")
-    return results
-
-
-def run_eval(cases, task_type=SingleTask, providers=None, poll_interval=60):
-    """Batch API calls. Submits jobs, polls until complete, returns results."""
-    if providers is None:
-        providers = CFG.available_providers
-
-    print(f"Submitting batch jobs for {len(cases)} cases...")
-    batch_ids = {}
-
-    for provider in providers:
-        model = CFG.models[provider]
-        try:
-            batch_id = BATCH_CREATE_FNS[provider](cases, task_type, model)
-            batch_ids[provider] = batch_id
-            log_batch_event("submitted", provider, batch_id, model=model, n_cases=len(cases))
-            print(f"  {provider}: {batch_id}")
-        except Exception as e:
-            print(f"  {provider}: FAILED - {e}")
-
-    print(f"\nPolling for completion (every {poll_interval}s)...")
-    completed = {}
-    while len(completed) < len(batch_ids):
-        time.sleep(poll_interval)
-        for provider, batch_id in batch_ids.items():
-            if provider in completed:
-                continue
-            try:
-                status, results = BATCH_CHECK_FNS[provider](batch_id)
-                if results:
-                    completed[provider] = results
-                    log_batch_event("completed", provider, batch_id)
-                    print(f"  {provider}: completed ({len(results)} results)")
-                else:
-                    print(f"  {provider}: {status}")
-            except Exception as e:
-                print(f"  {provider}: error - {e}")
-
-    # Build final results
-    case_lookup = {c["id"]: c for c in cases}
-    all_results = []
-    for provider, batch_results in completed.items():
-        model = CFG.models[provider]
-        for r in batch_results:
-            case = case_lookup.get(r["id"])
-            if not case:
-                continue
-            response = r["response"]
-            answer = task_type.extract(response, case)
-            all_results.append(task_type.make_result(case, provider, model, response, answer))
-
-    return all_results
-
-
-def analyze(results):
-    is_composite = "target_count" in results[0] if results else False
-    by_model = defaultdict(lambda: {"correct": 0, "total": 0, "off_by": []})
-    by_diff = defaultdict(lambda: defaultdict(lambda: {"correct": 0, "total": 0}))
-
-    for r in results:
-        model = r["model"]
-        by_model[model]["total"] += 1
-        if r["correct"]:
-            by_model[model]["correct"] += 1
-        elif is_composite and r["extracted_answer"] is not None and r["extracted_answer"] >= 0:
-            off = abs(r["extracted_answer"] - r["target_count"])
-            by_model[model]["off_by"].append(off)
-        by_diff[model][r["difficulty"]]["total"] += 1
-        if r["correct"]:
-            by_diff[model][r["difficulty"]]["correct"] += 1
-
-    return {
-        "by_model": {m: {
-            "accuracy": d["correct"]/d["total"] if d["total"] > 0 else 0,
-            "correct": d["correct"],
-            "total": d["total"],
-        } for m, d in by_model.items()},
-        "by_difficulty": {m: {diff: {
-            "accuracy": d["correct"]/d["total"] if d["total"] > 0 else 0,
-        } for diff, d in diffs.items()} for m, diffs in by_diff.items()},
-    }
-
-print("Eval framework loaded.")
-print("  quick_test(cases, task_type) - live API calls")
-print("  run_eval(cases, task_type)   - batch API calls")
-#+end_src
-
-#+RESULTS:
-
 * Run Evaluation
 
 ** Quick Test (live calls)
 
 #+begin_src python
-results = quick_test(test_cases, SingleTask, n=5)
+results = quick_test(
+    composite_cases,
+    CompositeTask,
+    n=CFG.sample_size,
+    providers=CFG.available_providers,
+    models=CFG.models,
+)
 with open("sample_results.json", "w") as f:
     json.dump(results, f, indent=2)
 #+end_src
@@ -598,8 +117,13 @@ with open("sample_results.json", "w") as f:
 ** Batch Run (batch APIs)
 
 #+begin_src python
-# Full batch run - submits to all providers, polls until complete
-results = run_eval(composite_cases, CompositeTask, poll_interval=60)
+results = run_eval(
+    composite_cases,
+    CompositeTask,
+    providers=CFG.available_providers,
+    models=CFG.models,
+    poll_interval=60,
+)
 with open("results.json", "w") as f:
     json.dump(results, f, indent=2)
 print(f"Saved {len(results)} results")
@@ -621,9 +145,3 @@ else:
         pct = stats["accuracy"] * 100
         print(f"{model}: {pct:.1f}% ({stats['correct']}/{stats['total']})")
 #+end_src
-
-#+RESULTS:
-: === Accuracy by Model ===
-: gpt-5.1: 40.0% (2/5)
-: claude-opus-4-5-20251101: 100.0% (5/5)
-: gemini-3-pro-preview: 0.0% (0/5)
