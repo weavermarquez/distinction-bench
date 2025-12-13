@@ -224,7 +224,16 @@ if results:
         json.dump(results, f, indent=2)
     print(f"Saved {len(results)} results")
 #+end_src
-** Evaluate
+
+#+RESULTS:
+: No pending batches, fetching completed results...
+: Fetching results for: ['anthropic', 'google']
+:   anthropic: fetched 500 results
+: Both GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY.
+:   google: fetched 500 results
+: Saved 1000 results
+
+** COMMENT Evaluate
 #+begin_src python :async
 results = run_eval(
     composite_cases,
@@ -270,3 +279,19 @@ else:
 #+end_src
 
 #+RESULTS:
+#+begin_example
+=== Results by Model ===
+claude-opus-4-5-20251101 (n=500):
+  Accuracy:      62.8% (20/500)
+  All-correct:   4.0%
+  Count match:   14.6%
+gemini-3-pro-preview (n=500):
+  Accuracy:      71.1% (83/500)
+  All-correct:   16.6%
+  Count match:   32.4%
+
+=== Cost by Model ===
+  claude-opus-4-5-20251101: $0.0000
+  gemini-3-pro-preview: $0.0000
+  TOTAL: $0.0000
+#+end_example

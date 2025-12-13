@@ -763,7 +763,13 @@ def fetch_batch_results(
     for provider, batch_results in completed.items():
         model = models[provider]
         for r in batch_results:
-            case = case_lookup.get(r["id"])
+            # Google returns idx_N instead of custom IDs - map back to case
+            result_id = r["id"]
+            if result_id.startswith("idx_"):
+                idx = int(result_id.split("_")[1])
+                case = cases[idx] if idx < len(cases) else None
+            else:
+                case = case_lookup.get(result_id)
             if not case:
                 continue
             response = r["response"]
