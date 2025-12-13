@@ -689,12 +689,19 @@ def analyze(results: list[dict]) -> dict:
     def metrics(d):
         t = d["total"]
         if t == 0:
-            return {"per_item_accuracy": 0, "all_correct_rate": 0, "count_match_rate": 0}
+            return {
+                "accuracy": 0, "correct": 0, "total": 0,
+                "per_item_accuracy": 0, "all_correct_rate": 0, "count_match_rate": 0,
+            }
         return {
+            # Standard keys (accuracy = per_item, correct = all_correct count)
+            "accuracy": d["item_acc_sum"] / t,
+            "correct": d["all_correct"],
+            "total": t,
+            # Composite-specific keys
             "per_item_accuracy": d["item_acc_sum"] / t,
             "all_correct_rate": d["all_correct"] / t,
             "count_match_rate": d["count_correct"] / t,
-            "total": t,
         }
 
     return {
