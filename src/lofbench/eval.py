@@ -308,7 +308,7 @@ class CompositeTask:
 async def eval_openai_live(prompt: str, model: str) -> tuple[str, dict]:
     """Live OpenAI API call. Returns (response_text, metadata)."""
     from openai import AsyncOpenAI
-    kwargs = {"temperature": 1}
+    kwargs = {"temperature": 1, "reasoning_effort": "high"}
     async with AsyncOpenAI() as client:
         response = await client.chat.completions.create(
             model=model,
@@ -395,6 +395,7 @@ def create_openai_batch(cases: list, task_type: type, model: str) -> str:
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 1,
+                "reasoning_effort": "high"
             }
         }
         jsonl_content += json.dumps(request) + "\n"
@@ -985,17 +986,17 @@ def print_dataset_stats(cases: list) -> None:
 
         # Baselines
         print("\n=== Random Baselines ===")
-        print(f"  Per-item:       50.0% (random binary)")
-        print(f"  All-correct:    {100 * 0.5**8:.2f}% (0.5^8)")
+        print(f"  Per-item:       50.0% (coin flip)")
+        print(f"  All-correct@8:  {100 * 0.5**8:.2f}% (8 coin flips)")
         # Count-match: P(guess from empirical dist matches) = sum P(k)^2
         p_match = sum((count_dist[k] / n) ** 2 for k in count_dist)
-        print(f"  Count-match:    {100 * p_match:.1f}% (empirical dist)")
+        print(f"  Count-match:    {100 * p_match:.1f}% (P(random guess correct) = Σ P(k)²)")
         # MAE baseline: E[|guess ~ empirical - true|]
         mae_baseline = sum(
             abs(g - tc) * count_dist[g] / n
             for tc in counts for g in count_dist
         ) / n
-        print(f"  Count MAE:      {mae_baseline:.2f} (empirical dist)")
+        print(f"  Count MAE:      {mae_baseline:.2f} (mean absolute error, guess ~ P(k))")
 
     # Steps per difficulty
     print("\n=== Average Steps per Difficulty ===")
@@ -1031,7 +1032,7 @@ def print_eval_results(results: list[dict]) -> None:
             valid = [r for r in model_results if r.get("answer_count", -1) >= 0]
             mae = sum(abs(r["answer_count"] - r["target_count"]) for r in valid) / len(valid) if valid else float('nan')
             print(f"  Per-item:      {stats['accuracy']*100:.1f}%")
-            print(f"  All-correct:   {stats['all_correct_rate']*100:.1f}% ({stats['correct']}/{stats['total']})")
+            print(f"  All-correct@8: {stats['all_correct_rate']*100:.1f}% ({stats['correct']}/{stats['total']})")
             print(f"  Count match:   {stats['count_match_rate']*100:.1f}%")
             print(f"  Count MAE:     {mae:.2f}")
         else:
@@ -1044,7 +1045,7 @@ def print_eval_results(results: list[dict]) -> None:
         for diff in sorted(diffs.keys()):
             stats = diffs[diff]
             if "all_correct_rate" in stats:
-                print(f"  {diff:<12} {stats['accuracy']*100:5.1f}% per-item  {stats['all_correct_rate']*100:5.1f}% all-correct  (n={stats['total']})")
+                print(f"  {diff:<12} {stats['accuracy']*100:5.1f}% per-item  {stats['all_correct_rate']*100:5.1f}% all-correct@8  (n={stats['total']})")
             else:
                 print(f"  {diff:<12} {stats['accuracy']*100:5.1f}%  (n={stats['total']})")
 

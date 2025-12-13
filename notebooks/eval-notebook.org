@@ -276,10 +276,10 @@ print_eval_results(results)
   8:  2
 
 === Random Baselines ===
-  Per-item:       50.0% (random binary)
-  All-correct:    0.39% (0.5^8)
-  Count-match:    20.0% (empirical dist)
-  Count MAE:      1.54 (empirical dist)
+  Per-item:       50.0% (coin flip)
+  All-correct:    0.39% (8 coin flips)
+  Count-match:    20.0% (P(random guess correct) = Σ P(k)²)
+  Count MAE:      1.54 (E[|guess-true|], guess ~ P. Mean Absolute Error)
 
 === Average Steps per Difficulty ===
   1. easy     : ~3.3 steps
