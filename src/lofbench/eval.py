@@ -48,8 +48,8 @@ def calculate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> di
 # Prompts
 # =============================================================================
 
-PROMPT_TEMPLATE = """You are an expert in evaluating Laws of Form expressions. \
-Your task is to analyze an expression that represents a structure of distinctions \
+PROMPT_TEMPLATE = """You are an expert in evaluating Laws of Form expressions.
+Your task is to analyze an expression that represents a structure of distinctions
 and reduce it to its simplest form using two fundamental axioms.
 
 Here is the expression you need to evaluate:
@@ -85,7 +85,7 @@ where X is either:
 """
 
 COMPOSITE_PROMPT_TEMPLATE = """You are an expert in evaluating Laws of Form expressions.
-Your task is to analyze an expression that represents a structure of distinctions \
+Your task is to analyze an expression that represents a structure of distinctions
 and reduce it to its simplest form using two fundamental axioms.
 
 Here are the expressions you need to evaluate:
