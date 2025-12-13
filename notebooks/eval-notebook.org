@@ -251,18 +251,43 @@ print(f"Saved {len(results)} results")
 
 #+begin_src python
 from lofbench.eval import print_dataset_stats, print_eval_results
+import json
 
 with open("results.json", "r") as f:
     data = json.load(f)
     results = data.get("results", data) if isinstance(data, dict) else data
 
 print_dataset_stats(composite_cases)
-print()
+print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 print_eval_results(results)
 #+end_src
 
 #+RESULTS:
 #+begin_example
+=== Target Count Distribution ===
+  0:  1
+  1: ███ 12
+  2: ████████████ 43
+  3: ████████████████████████████ 99
+  4: ████████████████████████████████████████ 141
+  5: █████████████████████████████████ 118
+  6: ██████████████████ 64
+  7: █████ 20
+  8:  2
+
+=== Random Baselines ===
+  Per-item:       50.0% (random binary)
+  All-correct:    0.39% (0.5^8)
+  Count-match:    20.0% (empirical dist)
+  Count MAE:      1.54 (empirical dist)
+
+=== Average Steps per Difficulty ===
+  1. easy     : ~3.3 steps
+  2. medium   : ~8.6 steps
+  3. hard     : ~12.7 steps
+  4. lunatic  : ~14.7 steps
+  5. extra    : ~18.1 steps
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 === Results by Model ===
 claude-opus-4-5-20251101 (n=500):
   Per-item:      62.8%
@@ -274,13 +299,6 @@ gemini-3-pro-preview (n=500):
   All-correct:   16.6% (83/500)
   Count match:   32.4%
   Count MAE:     1.15
-
-(average expected steps per difficulty)
-  1. easy     : ~3.3 steps
-  2. medium   : ~8.6 steps
-  3. hard     : ~12.7 steps
-  4. lunatic  : ~14.7 steps
-  5. extra    : ~18.1 steps
 
 === Accuracy by Difficulty ===
 claude-opus-4-5-20251101:
@@ -303,26 +321,4 @@ claude-opus-4-5-20251101:
 gemini-3-pro-preview:
   marked      : 70.8% (1479/2089)
   unmarked    : 71.5% (1366/1911)
-
-=== Random Baselines ===
-Target count distribution:
-  0:  2
-  1: ███ 24
-  2: ████████████ 86
-  3: ████████████████████████████ 198
-  4: ████████████████████████████████████████ 282
-  5: █████████████████████████████████ 236
-  6: ██████████████████ 128
-  7: █████ 40
-  8:  4
-
-  Per-item:       50.0% (random binary)
-  All-correct:    0.39% (0.5^8)
-  Count-match:    20.0% (empirical dist)
-  Count MAE:      1.54 (empirical dist)
-
-=== Cost by Model ===
-  claude-opus-4-5-20251101: $0.0000
-  gemini-3-pro-preview: $0.0000
-  TOTAL: $0.0000
 #+end_example
