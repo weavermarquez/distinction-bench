@@ -261,10 +261,93 @@ else:
     print("=== Results by Model ===")
     for model, stats in analysis["by_model"].items():
         print(f"{model} (n={stats['total']}):")
-        print(f"  Accuracy:      {stats['accuracy']*100:.1f}% ({stats['correct']}/{stats['total']})")
         if "all_correct_rate" in stats:  # Composite metrics
-            print(f"  All-correct:   {stats['all_correct_rate']*100:.1f}%")
+            # Compute MAE for this model
+            model_results = [r for r in results if r["metadata"]["model"] == model]
+            valid = [r for r in model_results if r.get("answer_count", -1) >= 0]
+            mae = sum(abs(r["answer_count"] - r["target_count"]) for r in valid) / len(valid) if valid else float('nan')
+            print(f"  Per-item:      {stats['accuracy']*100:.1f}%")
+            print(f"  All-correct:   {stats['all_correct_rate']*100:.1f}% ({stats['correct']}/{stats['total']})")
             print(f"  Count match:   {stats['count_match_rate']*100:.1f}%")
+            print(f"  Count MAE:     {mae:.2f}")
+        else:
+            print(f"  Accuracy:      {stats['accuracy']*100:.1f}% ({stats['correct']}/{stats['total']})")
+
+    # Results by difficulty
+    # Compute avg steps per difficulty from single test cases
+    from lofbench import simplify_string
+    diff_steps = defaultdict(list)
+    for r in results:
+        for expr in r.get("expressions", [r.get("input")]):
+            if expr:
+                _, steps = simplify_string(expr)
+                diff_steps[r["difficulty"]].append(len(steps))
+    print("\n(average expected steps per difficulty)")
+    for diff in sorted(diff_steps.keys()):
+        avg = sum(diff_steps[diff]) / len(diff_steps[diff])
+        print(f"  {diff:<12}: ~{avg:.1f} steps")
+        
+    print("\n=== Accuracy by Difficulty ===")
+    for model, diffs in analysis["by_difficulty"].items():
+        print(f"{model}:")
+        for diff in sorted(diffs.keys()):
+            stats = diffs[diff]
+            if "all_correct_rate" in stats:
+                print(f"  {diff:<12} {stats['accuracy']*100:5.1f}% per-item  {stats['all_correct_rate']*100:5.1f}% all-correct  (n={stats['total']})")
+            else:
+                print(f"  {diff:<12} {stats['accuracy']*100:5.1f}%  (n={stats['total']})")
+
+    # Accuracy by target (marked vs unmarked)
+    print("\n=== Accuracy by Target ===")
+    by_model_target = defaultdict(lambda: defaultdict(lambda: {"correct": 0, "total": 0}))
+    for r in results:
+        model = r["metadata"]["model"]
+        targets = r.get("target", [])
+        answers = r.get("answer", [])
+        if isinstance(targets, list):  # Composite
+            for tgt, ans in zip(targets, answers):
+                by_model_target[model][tgt]["total"] += 1
+                if ans == tgt:
+                    by_model_target[model][tgt]["correct"] += 1
+        else:  # Single
+            by_model_target[model][targets]["total"] += 1
+            if answers == targets:
+                by_model_target[model][targets]["correct"] += 1
+    for model, targets in by_model_target.items():
+        print(f"{model}:")
+        for tgt in ["marked", "unmarked"]:
+            stats = targets[tgt]
+            if stats["total"] > 0:
+                acc = stats["correct"] / stats["total"] * 100
+                print(f"  {tgt:<12}: {acc:.1f}% ({stats['correct']}/{stats['total']})")
+
+    # Random baselines (computed from actual target_count distribution)
+    if results and "target_count" in results[0]:
+        print("\n=== Random Baselines ===")
+        true_counts = [r["target_count"] for r in results]
+        n_results = len(true_counts)
+        from collections import Counter
+        count_dist = Counter(true_counts)
+        # Histogram of target counts
+        print("Target count distribution:")
+        max_count = max(count_dist.values())
+        for k in range(9):
+            c = count_dist.get(k, 0)
+            bar = "█" * int(40 * c / max_count) if max_count > 0 else ""
+            print(f"  {k}: {bar} {c}")
+        # Per-item: 50%
+        print(f"\n  Per-item:       50.0% (random binary)")
+        # All-correct: 0.5^8
+        print(f"  All-correct:    {100 * 0.5**8:.2f}% (0.5^8)")
+        # Count-match: P(guess from empirical dist matches) = sum P(k)^2
+        p_match = sum((count_dist[k] / n_results) ** 2 for k in count_dist)
+        print(f"  Count-match:    {100 * p_match:.1f}% (empirical dist)")
+        # MAE baseline: E[|guess ~ empirical - true|]
+        mae_baseline = sum(
+            abs(g - tc) * count_dist[g] / n_results
+            for tc in true_counts for g in count_dist
+        ) / n_results
+        print(f"  Count MAE:      {mae_baseline:.2f} (empirical dist)")
 
     # Cost summary
     print("\n=== Cost by Model ===")
@@ -282,13 +365,61 @@ else:
 #+begin_example
 === Results by Model ===
 claude-opus-4-5-20251101 (n=500):
-  Accuracy:      62.8% (20/500)
-  All-correct:   4.0%
+  Per-item:      62.8%
+  All-correct:   4.0% (20/500)
   Count match:   14.6%
+  Count MAE:     1.83
 gemini-3-pro-preview (n=500):
-  Accuracy:      71.1% (83/500)
-  All-correct:   16.6%
+  Per-item:      71.1%
+  All-correct:   16.6% (83/500)
   Count match:   32.4%
+  Count MAE:     1.15
+
+(average expected steps per difficulty)
+  1. easy     : ~3.3 steps
+  2. medium   : ~8.6 steps
+  3. hard     : ~12.7 steps
+  4. lunatic  : ~14.7 steps
+  5. extra    : ~18.1 steps
+
+=== Accuracy by Difficulty ===
+claude-opus-4-5-20251101:
+  1. easy       76.4% per-item   14.0% all-correct  (n=100)
+  2. medium     65.1% per-item    1.0% all-correct  (n=100)
+  3. hard       54.0% per-item    2.0% all-correct  (n=100)
+  4. lunatic    58.5% per-item    2.0% all-correct  (n=100)
+  5. extra      60.0% per-item    1.0% all-correct  (n=100)
+gemini-3-pro-preview:
+  1. easy       91.1% per-item   56.0% all-correct  (n=100)
+  2. medium     79.6% per-item   18.0% all-correct  (n=100)
+  3. hard       55.4% per-item    0.0% all-correct  (n=100)
+  4. lunatic    64.0% per-item    7.0% all-correct  (n=100)
+  5. extra      65.5% per-item    2.0% all-correct  (n=100)
+
+=== Accuracy by Target ===
+claude-opus-4-5-20251101:
+  marked      : 57.4% (1199/2089)
+  unmarked    : 68.7% (1313/1911)
+gemini-3-pro-preview:
+  marked      : 70.8% (1479/2089)
+  unmarked    : 71.5% (1366/1911)
+
+=== Random Baselines ===
+Target count distribution:
+  0:  2
+  1: ███ 24
+  2: ████████████ 86
+  3: ████████████████████████████ 198
+  4: ████████████████████████████████████████ 282
+  5: █████████████████████████████████ 236
+  6: ██████████████████ 128
+  7: █████ 40
+  8:  4
+
+  Per-item:       50.0% (random binary)
+  All-correct:    0.39% (0.5^8)
+  Count-match:    20.0% (empirical dist)
+  Count MAE:      1.54 (empirical dist)
 
 === Cost by Model ===
   claude-opus-4-5-20251101: $0.0000
