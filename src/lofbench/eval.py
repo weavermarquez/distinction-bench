@@ -68,14 +68,14 @@ Example: ()() = ()
 Two nested boundaries with nothing else between them annihilate to void.
 Example: (()) = void
 
-## Your Approach
+## Instructions
 
 1. Identify the structure
 2. Look for opportunities to apply axioms (I1 or I2)
-3. Apply axioms iteratively until no more reductions are possible
-4. State the final form
+3. Apply reductions iteratively until no more reductions are possible
+4. State whether the final result is marked (reduces to ()) or unmarked (reduces to void)
 
-After completing your reduction, provide your final answer:
+After completing your reduction, provide your final answer in this exact format:
 
 <answer>X</answer>
 
@@ -85,6 +85,8 @@ where X is either:
 """
 
 COMPOSITE_PROMPT_TEMPLATE = """You are an expert in evaluating Laws of Form expressions.
+Your task is to analyze an expression that represents a structure of distinctions \
+and reduce it to its simplest form using two fundamental axioms.
 
 Here are the expressions you need to evaluate:
 
@@ -98,9 +100,15 @@ Multiple adjacent boundaries condense into one: ()() = ()
 #### Axiom 2. The law of crossing
 Two nested boundaries annihilate to void: (()) = void
 
-For each expression, reduce it and determine if it's marked or unmarked.
+## Instructions
 
-Respond with a JSON object containing your answers. Use exactly this format:
+1. Identify the structure
+2. Look for opportunities to apply axioms (I1 or I2)
+3. Apply reductions iteratively until no more reductions are possible
+4. State whether the final result is marked (reduces to ()) or unmarked (reduces to void)
+
+After working through ALL expressions, provide your final answers in this exact JSON format:
+
 ```json
 {{"E1": "marked", "E2": "unmarked", ..., "total_marked": N}}
 ```
@@ -242,7 +250,7 @@ class CompositeTask:
 
     @staticmethod
     def format_prompt(case: dict) -> str:
-        lines = [f"{i}. {expr}" for i, expr in enumerate(case["expressions"], 1)]
+        lines = [f"E{i}. {expr}\n\n" for i, expr in enumerate(case["expressions"], 1)]
         return COMPOSITE_PROMPT_TEMPLATE.format(expressions="\n".join(lines))
 
     @staticmethod
@@ -300,7 +308,7 @@ class CompositeTask:
 async def eval_openai_live(prompt: str, model: str) -> tuple[str, dict]:
     """Live OpenAI API call. Returns (response_text, metadata)."""
     from openai import AsyncOpenAI
-    kwargs = {"temperature": 0}
+    kwargs = {"temperature": 1}
     async with AsyncOpenAI() as client:
         response = await client.chat.completions.create(
             model=model,
@@ -318,7 +326,7 @@ async def eval_openai_live(prompt: str, model: str) -> tuple[str, dict]:
 async def eval_anthropic_live(prompt: str, model: str) -> tuple[str, dict]:
     """Live Anthropic API call. Returns (response_text, metadata)."""
     from anthropic import AsyncAnthropic
-    kwargs = {"max_tokens": 16000}
+    kwargs = {"max_tokens": 60000}
     client = AsyncAnthropic()
     async with client.messages.stream(
         model=model,
@@ -386,7 +394,7 @@ def create_openai_batch(cases: list, task_type: type, model: str) -> str:
             "body": {
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0
+                "temperature": 1,
             }
         }
         jsonl_content += json.dumps(request) + "\n"
@@ -418,6 +426,7 @@ def create_anthropic_batch(cases: list, task_type: type, model: str) -> str:
             "params": {
                 "model": model,
                 "max_tokens": 64000,
+                "temperature": 1,
                 "messages": [{"role": "user", "content": prompt}]
             }
         })
@@ -696,6 +705,154 @@ def run_eval(
             all_results.append(task_type.make_result(case, provider, model, response, answer))
 
     return all_results
+
+
+def fetch_batch_results(
+    cases: list,
+    task_type: type = SingleTask,
+    models: dict[str, str] | None = None,
+    batch_log: str = "batch_log.jsonl",
+) -> list[dict]:
+    """
+    Fetch results from completed batch jobs (re-download if needed).
+
+    Args:
+        cases: Test cases (needed to process results)
+        task_type: SingleTask or CompositeTask
+        models: Dict mapping provider -> model name
+        batch_log: Path to batch log file
+
+    Returns:
+        List of processed result dicts
+    """
+    if models is None:
+        models = {
+            "openai": "gpt-4o",
+            "anthropic": "claude-sonnet-4-20250514",
+            "google": "gemini-2.0-flash",
+        }
+
+    # Load all submitted batch IDs (including completed ones)
+    batch_ids = {}
+    with open(batch_log) as f:
+        for line in f:
+            entry = json.loads(line)
+            if entry["event"] == "submitted":
+                batch_ids[entry["provider"]] = entry["batch_id"]
+
+    if not batch_ids:
+        print("No batches found in log")
+        return []
+
+    print(f"Fetching results for: {list(batch_ids.keys())}")
+    completed = {}
+    for provider, batch_id in batch_ids.items():
+        try:
+            status, results = BATCH_CHECK_FNS[provider](batch_id)
+            if results:
+                completed[provider] = results
+                print(f"  {provider}: fetched {len(results)} results")
+            else:
+                print(f"  {provider}: {status} (no results)")
+        except Exception as e:
+            print(f"  {provider}: error - {e}")
+
+    # Build final results
+    case_lookup = {c["id"]: c for c in cases}
+    all_results = []
+    for provider, batch_results in completed.items():
+        model = models[provider]
+        for r in batch_results:
+            case = case_lookup.get(r["id"])
+            if not case:
+                continue
+            response = r["response"]
+            answer = task_type.extract(response, case)
+            metadata = {"kwargs": {}, "usage": {}}
+            all_results.append(task_type.make_result(
+                case, provider, model, response, answer, metadata
+            ))
+
+    return all_results
+
+
+def resume_batch(
+    cases: list,
+    task_type: type = SingleTask,
+    models: dict[str, str] | None = None,
+    batch_log: str = "batch_log.jsonl",
+    poll_interval: int = 60,
+    skip_providers: list[str] | None = None,
+) -> list[dict]:
+    """
+    Resume polling for pending batch jobs and process results.
+
+    Args:
+        cases: Test cases (needed to process results)
+        task_type: SingleTask or CompositeTask
+        models: Dict mapping provider -> model name
+        batch_log: Path to batch log file
+        poll_interval: Seconds between status checks
+        skip_providers: List of providers to skip (e.g., cancelled batches)
+
+    Returns:
+        List of processed result dicts (same format as run_eval)
+    """
+    if models is None:
+        models = {
+            "openai": "gpt-4o",
+            "anthropic": "claude-sonnet-4-20250514",
+            "google": "gemini-2.0-flash",
+        }
+
+    # Load batch IDs (latest submission per provider, excluding completed)
+    batch_ids = {}
+    with open(batch_log) as f:
+        for line in f:
+            entry = json.loads(line)
+            if entry["event"] == "submitted":
+                batch_ids[entry["provider"]] = entry["batch_id"]
+            elif entry["event"] in ("completed", "cancelled"):
+                batch_ids.pop(entry["provider"], None)
+
+    # Skip specified providers
+    if skip_providers:
+        for p in skip_providers:
+            batch_ids.pop(p, None)
+
+    # Poll for pending batches
+    if not batch_ids:
+        print("No pending batches, fetching completed results...")
+    else:
+        print(f"Polling pending batches: {list(batch_ids.keys())}")
+        failed = set()
+        while len(failed) < len(batch_ids):
+            time.sleep(poll_interval)
+            all_done = True
+            for provider, batch_id in batch_ids.items():
+                if provider in failed:
+                    continue
+                try:
+                    status, results = BATCH_CHECK_FNS[provider](batch_id)
+                    if results:
+                        log_batch_event(batch_log, "completed", provider, batch_id)
+                        print(f"  {provider}: completed ({len(results)} results)")
+                    elif status in ("failed", "cancelled", "expired"):
+                        failed.add(provider)
+                        log_batch_event(batch_log, "cancelled", provider, batch_id)
+                        print(f"  {provider}: {status} (skipping)")
+                        continue
+                    else:
+                        print(f"  {provider}: {status}")
+                        all_done = False
+                except Exception as e:
+                    failed.add(provider)
+                    print(f"  {provider}: error - {e} (skipping)")
+            if all_done:
+                break
+
+    # Fetch all results (use fetch_batch_results)
+    return fetch_batch_results(cases, task_type, models, batch_log)
 
 
 def analyze(results: list[dict]) -> dict:

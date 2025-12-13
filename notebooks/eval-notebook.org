@@ -80,6 +80,12 @@ for p in ["openai", "anthropic", "google"]:
     print(f"  {status} {p}: {CFG.models[p]}")
 #+end_src
 
+#+RESULTS:
+: Setup complete.
+:   ✓ openai: gpt-5.2
+:   ✓ anthropic: claude-opus-4-5-20251101
+:   ✓ google: gemini-3-pro-preview
+
 * Generate Test Cases
 
 #+begin_src python
@@ -104,6 +110,9 @@ with open("composite_test_cases.json", "r") as f:
     composite_cases = json.load(f)
 print(f"Loaded {len(test_cases)} single, {len(composite_cases)} composite test cases")
 #+end_src
+
+#+RESULTS:
+: Loaded 4000 single, 500 composite test cases
 
 * Run Quick Test (live calls)
 
@@ -199,6 +208,22 @@ gemini-3-pro-preview (n=5):
 
 * Run Batch Run (batch APIs)
 
+** Resume/Check Pending Batches
+
+#+begin_src python :async
+from lofbench.eval import resume_batch
+results = resume_batch(
+    composite_cases,
+    CompositeTask,
+    models=CFG.models,
+    batch_log="batch_log.jsonl",
+    poll_interval=30,
+)
+if results:
+    with open("results.json", "w") as f:
+        json.dump(results, f, indent=2)
+    print(f"Saved {len(results)} results")
+#+end_src
 ** Evaluate
 #+begin_src python :async
 results = run_eval(
@@ -243,3 +268,5 @@ else:
         print(f"  {model}: ${cost:.4f}")
     print(f"  TOTAL: ${total:.4f}")
 #+end_src
+
+#+RESULTS:
