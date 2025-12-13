@@ -961,3 +961,113 @@ def analyze(results: list[dict]) -> dict:
             for m, diffs in by_diff.items()
         },
     }
+
+
+def print_dataset_stats(cases: list) -> None:
+    """Print dataset statistics: count distribution, steps per difficulty, baselines."""
+    from lofbench import simplify_string
+
+    is_composite = "expressions" in cases[0]
+    n = len(cases)
+
+    if is_composite:
+        # Count distribution histogram
+        print("=== Target Count Distribution ===")
+        counts = [c["count"] for c in cases]
+        count_dist = defaultdict(int)
+        for c in counts:
+            count_dist[c] += 1
+        max_count = max(count_dist.values()) if count_dist else 1
+        for k in range(9):
+            c = count_dist.get(k, 0)
+            bar = "█" * int(40 * c / max_count) if max_count > 0 else ""
+            print(f"  {k}: {bar} {c}")
+
+        # Baselines
+        print("\n=== Random Baselines ===")
+        print(f"  Per-item:       50.0% (random binary)")
+        print(f"  All-correct:    {100 * 0.5**8:.2f}% (0.5^8)")
+        # Count-match: P(guess from empirical dist matches) = sum P(k)^2
+        p_match = sum((count_dist[k] / n) ** 2 for k in count_dist)
+        print(f"  Count-match:    {100 * p_match:.1f}% (empirical dist)")
+        # MAE baseline: E[|guess ~ empirical - true|]
+        mae_baseline = sum(
+            abs(g - tc) * count_dist[g] / n
+            for tc in counts for g in count_dist
+        ) / n
+        print(f"  Count MAE:      {mae_baseline:.2f} (empirical dist)")
+
+    # Steps per difficulty
+    print("\n=== Average Steps per Difficulty ===")
+    diff_steps = defaultdict(list)
+    for case in cases:
+        exprs = case.get("expressions", [case.get("input")])
+        diff = case["difficulty"]
+        for expr in exprs:
+            if expr:
+                _, steps = simplify_string(expr)
+                diff_steps[diff].append(len(steps))
+    for diff in sorted(diff_steps.keys()):
+        avg = sum(diff_steps[diff]) / len(diff_steps[diff])
+        print(f"  {diff:<12}: ~{avg:.1f} steps")
+
+
+def print_eval_results(results: list[dict]) -> None:
+    """Print evaluation results: by model, by difficulty, by target."""
+    if not results:
+        print("No results to analyze")
+        return
+
+    analysis = analyze(results)
+    is_composite = "per_item_correct" in results[0]
+
+    # Results by model
+    print("=== Results by Model ===")
+    for model, stats in analysis["by_model"].items():
+        print(f"{model} (n={stats['total']}):")
+        if "all_correct_rate" in stats:
+            # Compute MAE for this model
+            model_results = [r for r in results if r["metadata"]["model"] == model]
+            valid = [r for r in model_results if r.get("answer_count", -1) >= 0]
+            mae = sum(abs(r["answer_count"] - r["target_count"]) for r in valid) / len(valid) if valid else float('nan')
+            print(f"  Per-item:      {stats['accuracy']*100:.1f}%")
+            print(f"  All-correct:   {stats['all_correct_rate']*100:.1f}% ({stats['correct']}/{stats['total']})")
+            print(f"  Count match:   {stats['count_match_rate']*100:.1f}%")
+            print(f"  Count MAE:     {mae:.2f}")
+        else:
+            print(f"  Accuracy:      {stats['accuracy']*100:.1f}% ({stats['correct']}/{stats['total']})")
+
+    # Results by difficulty
+    print("\n=== Accuracy by Difficulty ===")
+    for model, diffs in analysis["by_difficulty"].items():
+        print(f"{model}:")
+        for diff in sorted(diffs.keys()):
+            stats = diffs[diff]
+            if "all_correct_rate" in stats:
+                print(f"  {diff:<12} {stats['accuracy']*100:5.1f}% per-item  {stats['all_correct_rate']*100:5.1f}% all-correct  (n={stats['total']})")
+            else:
+                print(f"  {diff:<12} {stats['accuracy']*100:5.1f}%  (n={stats['total']})")
+
+    # Accuracy by target (marked vs unmarked)
+    print("\n=== Accuracy by Target ===")
+    by_model_target = defaultdict(lambda: defaultdict(lambda: {"correct": 0, "total": 0}))
+    for r in results:
+        model = r["metadata"]["model"]
+        targets = r.get("target", [])
+        answers = r.get("answer", [])
+        if isinstance(targets, list):
+            for tgt, ans in zip(targets, answers):
+                by_model_target[model][tgt]["total"] += 1
+                if ans == tgt:
+                    by_model_target[model][tgt]["correct"] += 1
+        else:
+            by_model_target[model][targets]["total"] += 1
+            if answers == targets:
+                by_model_target[model][targets]["correct"] += 1
+    for model, targets in by_model_target.items():
+        print(f"{model}:")
+        for tgt in ["marked", "unmarked"]:
+            stats = targets[tgt]
+            if stats["total"] > 0:
+                acc = stats["correct"] / stats["total"] * 100
+                print(f"  {tgt:<12}: {acc:.1f}% ({stats['correct']}/{stats['total']})")
