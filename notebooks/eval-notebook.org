@@ -80,12 +80,6 @@ for p in ["openai", "anthropic", "google"]:
     print(f"  {status} {p}: {CFG.models[p]}")
 #+end_src
 
-#+RESULTS:
-: Setup complete.
-:   ✓ openai: gpt-5.2
-:   ✓ anthropic: claude-opus-4-5-20251101
-:   ✓ google: gemini-3-pro-preview
-
 * Generate Test Cases
 
 #+begin_src python
@@ -126,6 +120,29 @@ with open("sample_results.json", "w") as f:
     json.dump(results, f, indent=2)
 #+end_src
 
+#+RESULTS:
+#+begin_example
+Results (15 cases):
+  Per-item accuracy: 65.8%
+  All-correct@8:     0/15 (0.0%)
+  Count exact match: 1/15 (6.7%)
+  ✗ comp_001 (openai): 3/8 items, count=5 (tgt 2)
+  ✗ comp_001 (anthropic): 6/8 items, count=2 (tgt 2)
+  ✗ comp_001 (google): 7/8 items, count=3 (tgt 2)
+  ✗ comp_002 (openai): 7/8 items, count=8 (tgt 7)
+  ✗ comp_002 (anthropic): 6/8 items, count=5 (tgt 7)
+  ✗ comp_002 (google): 6/8 items, count=5 (tgt 7)
+  ✗ comp_003 (openai): 5/8 items, count=4 (tgt 5)
+  ✗ comp_003 (anthropic): 5/8 items, count=4 (tgt 5)
+  ✗ comp_003 (google): 5/8 items, count=4 (tgt 5)
+  ✗ comp_004 (openai): 3/8 items, count=4 (tgt 5)
+  ✗ comp_004 (anthropic): 4/8 items, count=1 (tgt 5)
+  ✗ comp_004 (google): 7/8 items, count=4 (tgt 5)
+  ✗ comp_005 (openai): 4/8 items, count=7 (tgt 3)
+  ✗ comp_005 (anthropic): 6/8 items, count=1 (tgt 3)
+  ✗ comp_005 (google): 5/8 items, count=2 (tgt 3)
+#+end_example
+
 ** Analyze Results
 
 #+begin_src python
@@ -144,15 +161,43 @@ else:
         if "all_correct_rate" in stats:  # Composite metrics
             print(f"  All-correct:   {stats['all_correct_rate']*100:.1f}%")
             print(f"  Count match:   {stats['count_match_rate']*100:.1f}%")
+
+    # Cost summary
+    print("\n=== Cost by Model ===")
+    from collections import defaultdict
+    costs = defaultdict(float)
+    for r in results:
+        costs[r["metadata"]["model"]] += r["metadata"]["cost"]["total_cost"]
+    total = sum(costs.values())
+    for model, cost in sorted(costs.items()):
+        print(f"  {model}: ${cost:.4f}")
+    print(f"  TOTAL: ${total:.4f}")
 #+end_src
 
 #+RESULTS:
-: === Accuracy by Model ===
-: gpt-5.2: 47.5% (0/5)
-: claude-opus-4-5-20251101: 62.5% (1/5)
-: gemini-3-pro-preview: 72.5% (1/5)
+#+begin_example
+=== Results by Model ===
+gpt-5.2 (n=5):
+  Accuracy:      55.0% (0/5)
+  All-correct:   0.0%
+  Count match:   0.0%
+claude-opus-4-5-20251101 (n=5):
+  Accuracy:      67.5% (0/5)
+  All-correct:   0.0%
+  Count match:   20.0%
+gemini-3-pro-preview (n=5):
+  Accuracy:      75.0% (0/5)
+  All-correct:   0.0%
+  Count match:   0.0%
 
-* COMMENT Run Batch Run (batch APIs)
+=== Cost by Model ===
+  claude-opus-4-5-20251101: $0.0997
+  gemini-3-pro-preview: $0.0630
+  gpt-5.2: $0.0066
+  TOTAL: $0.1693
+#+end_example
+
+* Run Batch Run (batch APIs)
 
 ** Evaluate
 #+begin_src python :async
@@ -161,7 +206,7 @@ results = run_eval(
     CompositeTask,
     providers=CFG.available_providers,
     models=CFG.models,
-    poll_interval=60,
+    poll_interval=30,
 )
 with open("results.json", "w") as f:
     json.dump(results, f, indent=2)
@@ -186,4 +231,15 @@ else:
         if "all_correct_rate" in stats:  # Composite metrics
             print(f"  All-correct:   {stats['all_correct_rate']*100:.1f}%")
             print(f"  Count match:   {stats['count_match_rate']*100:.1f}%")
+
+    # Cost summary
+    print("\n=== Cost by Model ===")
+    from collections import defaultdict
+    costs = defaultdict(float)
+    for r in results:
+        costs[r["metadata"]["model"]] += r["metadata"]["cost"]["total_cost"]
+    total = sum(costs.values())
+    for model, cost in sorted(costs.items()):
+        print(f"  {model}: ${cost:.4f}")
+    print(f"  TOTAL: ${total:.4f}")
 #+end_src
