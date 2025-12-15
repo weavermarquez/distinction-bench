@@ -962,7 +962,10 @@ name = "lofbench"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "anthropic" },
+    { name = "google-genai" },
     { name = "inspect-ai" },
+    { name = "openai" },
 ]
 
 [package.optional-dependencies]
@@ -977,17 +980,28 @@ eval = [
     { name = "python-dotenv" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", specifier = ">=0.75.0" },
     { name = "anthropic", marker = "extra == 'eval'", specifier = ">=0.75.0" },
+    { name = "google-genai", specifier = ">=1.55.0" },
     { name = "google-genai", marker = "extra == 'eval'", specifier = ">=1.55.0" },
     { name = "inspect-ai", specifier = ">=0.3.154" },
+    { name = "openai", specifier = ">=2.11.0" },
     { name = "openai", marker = "extra == 'eval'", specifier = ">=2.11.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "python-dotenv", marker = "extra == 'eval'", specifier = ">=1.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },
 ]
 provides-extras = ["eval", "dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "markdown-it-py"
