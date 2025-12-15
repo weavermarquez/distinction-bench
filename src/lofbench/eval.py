@@ -65,22 +65,22 @@ Multiple adjacent boundaries with nothing else inside them condense into one.
 Example: ()() = ()
 
 #### Axiom 2. The law of crossing
-Two nested boundaries with nothing else between them annihilate to void.
-Example: (()) = void
+Two nested boundaries with nothing else between them annihilate to nothing.
+Example: (()) = 
 
 ## Instructions
 
 1. Identify the structure
 2. Look for opportunities to apply axioms (I1 or I2)
 3. Apply reductions iteratively until no more reductions are possible
-4. State whether the final result is marked (reduces to ()) or unmarked (reduces to void)
+4. State whether the final result is marked (reduces to ()) or unmarked (reduces to nothing)
 
 After completing your reduction, provide your final answer in this exact format:
 
 <answer>X</answer>
 
 where X is either:
-- unmarked (if the expression reduces to void)
+- unmarked (if the expression reduces to nothing)
 - marked (if structure remains)
 """
 
@@ -98,14 +98,14 @@ Here are the expressions you need to evaluate:
 Multiple adjacent boundaries condense into one: ()() = ()
 
 #### Axiom 2. The law of crossing
-Two nested boundaries annihilate to void: (()) = void
+Two nested boundaries annihilate to nothing: (()) = 
 
 ## Instructions
 
 1. Identify the structure
 2. Look for opportunities to apply axioms (I1 or I2)
 3. Apply reductions iteratively until no more reductions are possible
-4. State whether the final result is marked (reduces to ()) or unmarked (reduces to void)
+4. State whether the final result is marked (reduces to ()) or unmarked (reduces to nothing)
 
 After working through ALL expressions, provide your final answers in this exact JSON format:
 
@@ -126,7 +126,7 @@ def extract_answer(response: str | None) -> str:
     if response is None:
         return "unknown"
 
-    pattern = r'<answer>\s*(marked|unmarked|\(\)|void)\s*</answer>'
+    pattern = r'<answer>\s*(marked|unmarked|\(\)|void|empty|nothing)\s*</answer>'
     match = re.search(pattern, response, re.IGNORECASE)
     if match:
         ans = match.group(1).lower()
@@ -134,7 +134,7 @@ def extract_answer(response: str | None) -> str:
 
     response_lower = response.lower()
     mark_pos = max(response_lower.rfind("()"), response_lower.rfind("marked"))
-    void_pos = max(response_lower.rfind("void"), response_lower.rfind("unmarked"))
+    void_pos = max(response_lower.rfind("(void|empty|nothing)"), response_lower.rfind("unmarked"))
 
     if mark_pos > void_pos:
         return "marked"
@@ -172,7 +172,7 @@ def extract_composite_answer(response: str | None, n: int) -> dict:
                     val = val.lower()
                     if val in ("marked", "()"):
                         items.append("marked")
-                    elif val in ("unmarked", "void"):
+                    elif val in ("unmarked", "void", "empty", "nothing"):
                         items.append("unmarked")
                     else:
                         items.append("unknown")
