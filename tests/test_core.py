@@ -119,9 +119,9 @@ class TestGenerator:
             # Check balanced parens
             depth = 0
             for c in s:
-                if c == '(':
+                if c == "(":
                     depth += 1
-                elif c == ')':
+                elif c == ")":
                     depth -= 1
                 assert depth >= 0, f"Unbalanced: {s}"
             assert depth == 0, f"Unbalanced: {s}"

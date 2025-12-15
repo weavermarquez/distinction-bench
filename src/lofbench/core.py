@@ -9,6 +9,7 @@ import random
 # Form Representation
 # =============================================================================
 
+
 def form_to_string(form: list) -> str:
     """Convert internal form representation (nested lists) to string.
 
@@ -39,18 +40,18 @@ def string_to_form(s: str) -> list:
     result = []
     i = 0
     while i < len(s):
-        if s[i] == '(':
+        if s[i] == "(":
             # Find matching close paren
             depth = 1
             j = i + 1
             while j < len(s) and depth > 0:
-                if s[j] == '(':
+                if s[j] == "(":
                     depth += 1
-                elif s[j] == ')':
+                elif s[j] == ")":
                     depth -= 1
                 j += 1
             # Recursively parse contents
-            result.append(string_to_form(s[i+1:j-1]))
+            result.append(string_to_form(s[i + 1 : j - 1]))
             i = j
         else:
             i += 1
@@ -69,10 +70,10 @@ def string_depth(s: str) -> int:
     max_depth = 0
     current = 0
     for c in s:
-        if c == '(':
+        if c == "(":
             current += 1
             max_depth = max(max_depth, current)
-        elif c == ')':
+        elif c == ")":
             current -= 1
     return max_depth
 
@@ -80,6 +81,7 @@ def string_depth(s: str) -> int:
 # =============================================================================
 # Simplifier (Ground-Truth Oracle)
 # =============================================================================
+
 
 def simplify_string(s: str) -> tuple[str, list[tuple[str, str, str]]]:
     """
@@ -103,9 +105,9 @@ def simplify_string(s: str) -> tuple[str, list[tuple[str, str, str]]]:
     steps = []
 
     for c in s:
-        if c == '(':
+        if c == "(":
             stack.append([])
-        elif c == ')':
+        elif c == ")":
             children = stack.pop()
 
             # Apply I1: all identical → condense
@@ -163,12 +165,13 @@ def evaluate(s: str) -> str:
 # Generator
 # =============================================================================
 
+
 def generate_form_string(
     min_depth: int = 1,
     max_depth: int = 3,
     max_width: int = 3,
     max_marks: int = 200,
-    rng: random.Random | None = None
+    rng: random.Random | None = None,
 ) -> str:
     """
     Generate a random LoF form as a string directly (memory efficient).
@@ -223,6 +226,7 @@ def generate_form_string(
 # Test Case Generation
 # =============================================================================
 
+
 def generate_test_cases(n: int = 4000, seed: int = 20251211) -> list[dict]:
     """Generate n test cases with varying difficulty.
 
@@ -238,22 +242,21 @@ def generate_test_cases(n: int = 4000, seed: int = 20251211) -> list[dict]:
     """
     rng = random.Random(seed)
     cases = []
-    one_fifth = math.floor(n/5)
+    one_fifth = math.floor(n / 5)
 
     # Distribution with (difficulty, min_depth, max_depth, max_width, max_marks)
     difficulties = (
-        [("1. easy", 2, 3, 2, 15)] * one_fifth +
-        [("2. medium", 3, 4, 3, 20)] * one_fifth +
-        [("3. hard", 4, 5, 6, 25)] * one_fifth +
-        [("4. lunatic", 3, 8, 9, 30)] * one_fifth +
-        [("5. extra", 4, 9, 3, 35)] * one_fifth
+        [("1. easy", 2, 3, 2, 15)] * one_fifth
+        + [("2. medium", 3, 4, 3, 20)] * one_fifth
+        + [("3. hard", 4, 5, 6, 25)] * one_fifth
+        + [("4. lunatic", 3, 8, 9, 30)] * one_fifth
+        + [("5. extra", 4, 9, 3, 35)] * one_fifth
     )
     rng.shuffle(difficulties)
 
     for i, (diff, min_d, max_d, max_w, max_m) in enumerate(difficulties[:n]):
         input_str = generate_form_string(
-            min_depth=min_d, max_depth=max_d,
-            max_width=max_w, max_marks=max_m, rng=rng
+            min_depth=min_d, max_depth=max_d, max_width=max_w, max_marks=max_m, rng=rng
         )
         if not input_str:
             input_str = "()"  # Ensure non-empty
@@ -263,22 +266,22 @@ def generate_test_cases(n: int = 4000, seed: int = 20251211) -> list[dict]:
         canonical, steps = simplify_string(input_str)
         target = "marked" if canonical == "()" else "unmarked"
 
-        cases.append({
-            "id": f"lof_{i+1:03d}",
-            "input": input_str,
-            "target": target,
-            "difficulty": diff,
-            "depth": depth,
-            "steps": len(steps)
-        })
+        cases.append(
+            {
+                "id": f"lof_{i + 1:03d}",
+                "input": input_str,
+                "target": target,
+                "difficulty": diff,
+                "depth": depth,
+                "steps": len(steps),
+            }
+        )
 
     return cases
 
 
 def generate_composite_test_cases(
-    n_groups: int = 500,
-    group_size: int = 8,
-    seed: int = 2024
+    n_groups: int = 500, group_size: int = 8, seed: int = 2024
 ) -> list[dict]:
     """
     Generate composite test cases (groups of problems).
@@ -304,7 +307,7 @@ def generate_composite_test_cases(
         ("2. medium", 3, 4, 3, 20),
         ("3. hard", 4, 5, 6, 25),
         ("4. lunatic", 3, 8, 9, 30),
-        ("5. extra", 4, 9, 3, 35)
+        ("5. extra", 4, 9, 3, 35),
     ]
 
     for i in range(n_groups):
@@ -316,8 +319,7 @@ def generate_composite_test_cases(
 
         for _ in range(group_size):
             expr = generate_form_string(
-                min_depth=min_d, max_depth=max_d,
-                max_width=max_w, max_marks=max_m, rng=rng
+                min_depth=min_d, max_depth=max_d, max_width=max_w, max_marks=max_m, rng=rng
             )
             if not expr:
                 expr = "()"  # Ensure non-empty
@@ -328,13 +330,15 @@ def generate_composite_test_cases(
         # Count how many simplify to marked
         mark_count = sum(1 for t in targets if t == "marked")
 
-        cases.append({
-            "id": f"comp_{i+1:03d}",
-            "expressions": expressions,
-            "targets": targets,
-            "count": mark_count,
-            "difficulty": diff_name,
-            "group_size": group_size
-        })
+        cases.append(
+            {
+                "id": f"comp_{i + 1:03d}",
+                "expressions": expressions,
+                "targets": targets,
+                "count": mark_count,
+                "difficulty": diff_name,
+                "group_size": group_size,
+            }
+        )
 
     return cases

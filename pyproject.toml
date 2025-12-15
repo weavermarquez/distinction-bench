@@ -5,7 +5,9 @@ description = "Laws of Form benchmark toolkit"
 readme = {file = "README.org", content-type = "text/plain"}
 license = "MIT"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "inspect-ai>=0.3.154",
+]
 
 [project.optional-dependencies]
 eval = [
