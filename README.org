@@ -23,6 +23,35 @@ print(form)  # e.g. "((())(()))"
 print(canonical_string("()()"))  # "()"
 #+end_src
 
+** Running Evaluations
+
+This benchmark uses [[https://inspect.aisi.org.uk/][inspect-ai]] for model evaluation.
+
+#+begin_src bash
+# Run single expression task (10 samples)
+uv run inspect eval src/lofbench/tasks/single.py --model anthropic/claude-sonnet-4-20250514 -T n=10
+
+# Run composite task (multiple expressions per sample)
+uv run inspect eval src/lofbench/tasks/composite.py --model openai/gpt-4o -T n_groups=20
+
+# Use noisy bracket substitution
+uv run inspect eval src/lofbench/tasks/single.py --model anthropic/claude-sonnet-4-20250514 -T renderer=noisy_parens
+
+# View results in browser
+uv run inspect view
+#+end_src
+
+*** Task Parameters
+
+| Parameter     | Task      | Description                          | Default |
+|---------------+-----------+--------------------------------------+---------|
+| =n=           | single    | Number of test cases                 |     100 |
+| =n_groups=    | composite | Number of expression groups          |     100 |
+| =group_size=  | composite | Expressions per group                |       8 |
+| =seed=        | both      | Random seed for reproducibility      |    2025 |
+| =renderer=    | both      | Renderer name (canonical, noisy_parens) | canonical |
+| =render_seed= | both      | Seed for renderer randomness         |    None |
+
 ** Laws of Form
 
 Spencer-Brown's Laws of Form defines a minimal calculus with two axioms:
