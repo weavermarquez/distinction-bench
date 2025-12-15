@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from inspect_ai import Task, task
-from inspect_ai.solver import generate, prompt_template, system_message
+from inspect_ai.solver import chain_of_thought, generate, prompt_template, system_message
 
 from lofbench.datasets import create_single_dataset
 from lofbench.renderers import get_renderer
@@ -50,6 +50,7 @@ def single_lof_task(
         dataset=dataset,
         solver=[
             system_message(SINGLE_SYSTEM_PROMPT),
+            chain_of_thought(),
             prompt_template(SINGLE_USER_TEMPLATE),
             generate(),
         ],

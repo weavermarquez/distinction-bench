@@ -31,8 +31,8 @@ def extract_single_answer(response: str) -> Literal["marked", "unmarked", "unkno
 
     # Fallback: find last occurrence of "marked"/"()" vs "unmarked"/"void"
     response_lower = response.lower()
-    mark_pos = max(response_lower.rfind("()"), response_lower.rfind("marked"))
-    unmark_pos = max(response_lower.rfind("nothing"), response_lower.rfind("unmarked"))
+    mark_pos = response_lower.rfind("marked")
+    unmark_pos = response_lower.rfind("unmarked")
 
     if mark_pos > unmark_pos:
         return "marked"

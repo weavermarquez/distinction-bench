@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from inspect_ai import Task, task
-from inspect_ai.solver import generate, prompt_template, system_message
+from inspect_ai.solver import chain_of_thought, generate, prompt_template, system_message
 
 from lofbench.datasets import create_composite_dataset
 from lofbench.renderers import get_renderer
@@ -29,7 +29,7 @@ def composite_lof_task(
     and count how many are marked. This tests systematic reasoning
     across a batch of problems.
 
-    Random baseline for group_size=8: ~11% (1/9)
+    Random baseline for group_size=8: 0.04% (1/2**8) 
 
     Args:
         n_groups: Number of test groups
@@ -56,6 +56,7 @@ def composite_lof_task(
         dataset=dataset,
         solver=[
             system_message(COMPOSITE_SYSTEM_PROMPT),
+            chain_of_thought(),
             prompt_template(COMPOSITE_USER_TEMPLATE),
             generate(),
         ],
