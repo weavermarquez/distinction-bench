@@ -74,7 +74,7 @@ def create_composite_dataset(
     """Create a dataset for composite (multi-expression) evaluation.
 
     For composite tasks, the input contains multiple expressions and
-    the target is the count of marked expressions.
+    the target is the comma-separated list of expected results (marked/unmarked).
 
     Args:
         n_groups: Number of test groups
@@ -109,14 +109,13 @@ def create_composite_dataset(
             Sample(
                 id=case["id"],
                 input="Evaluate the expressions",  # Placeholder, template provides real prompt
-                target=str(case["count"]),  # Count of marked expressions
+                target=",".join(case["targets"]),  # e.g., "marked,unmarked,marked,marked"
                 metadata={
                     "expressions": formatted_input,  # For template substitution
                     "difficulty": case["difficulty"],
                     "group_size": case["group_size"],
                     "original_expressions": case["expressions"],
                     "targets": case["targets"],  # Per-expression targets
-                    "count": case["count"],
                     "renderer": renderer.name,
                     "rendered_expressions": [r.rendered for r in rendered_exprs],
                 },
