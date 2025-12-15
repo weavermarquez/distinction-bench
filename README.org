@@ -35,7 +35,7 @@ uv run inspect eval src/lofbench/tasks/single.py --model anthropic/claude-sonnet
 uv run inspect eval src/lofbench/tasks/composite.py --model openai/gpt-4o -T n_groups=20
 
 # Use noisy bracket substitution
-uv run inspect eval src/lofbench/tasks/single.py --model anthropic/claude-sonnet-4-20250514 -T renderer=noisy_parens
+uv run inspect eval src/lofbench/tasks/single.py --model anthropic/claude-sonnet-4-5-20251101 -T renderer=noisy_parens
 
 # View results in browser
 uv run inspect view

@@ -396,6 +396,15 @@ for expr in expressions:
     print(f"  {expr:15} → canonical: {c_result.rendered:15} noisy: {n_result.rendered}")
 #+end_src
 
+#+RESULTS:
+: Available renderers: ['canonical', 'noisy_parens']
+: 
+: === Rendering Comparison ===
+:   (())            → canonical: (())            noisy: [()]
+:   ()()            → canonical: ()()            noisy: ⟨⟩⟨⟩
+:   ((())())        → canonical: ((())())        noisy: <<{}><>>
+:   (())(())        → canonical: (())(())        noisy: [「」][「」]
+
 ** Mismatched Bracket Mode
 
 #+begin_src python
@@ -415,6 +424,14 @@ for expr in expressions:
     result = renderer.render(expr, rng)
     print(f"  {expr:15} → {result.rendered}")
 #+end_src
+
+#+RESULTS:
+: === Mismatched Bracket Mode ===
+: (Opening and closing brackets chosen independently)
+: 
+:   (())            → (⟨]〉
+:   ()()            → ⟨](〉
+:   ((())())        → 「「〈〉){}〉
 
 * Export Results
 
