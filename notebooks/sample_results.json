@@ -1,0 +1,997 @@
+[
+  {
+    "task_id": "comp_001",
+    "answer": [
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "unmarked"
+    ],
+    "answer_count": 5,
+    "correct": false,
+    "count_correct": false,
+    "target": [
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "marked",
+      "unmarked"
+    ],
+    "target_count": 2,
+    "expressions": [
+      "((()(()))((())))((()())((())))",
+      "(((())(()))((())()))",
+      "(((()))(()))",
+      "(((()))(()))",
+      "(()())(()())",
+      "((()())((())()))(()())",
+      "((()())(()))(((())(()))((())))",
+      "(())"
+    ],
+    "difficulty": "1. easy",
+    "per_item_correct": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true
+    ],
+    "metadata": {
+      "model": "gpt-5.2",
+      "provider": "openai",
+      "start_timestamp": "2025-12-12T19:51:59.735929",
+      "end_timestamp": "2025-12-12T19:52:04.118427",
+      "response": "```json\n{\"E1\":\"marked\",\"E2\":\"marked\",\"E3\":\"marked\",\"E4\":\"marked\",\"E5\":\"unmarked\",\"E6\":\"unmarked\",\"E7\":\"marked\",\"E8\":\"unmarked\",\"total_marked\":5}\n```",
+      "kwargs": {
+        "temperature": 0
+      },
+      "usage": {
+        "prompt_tokens": 230,
+        "completion_tokens": 57
+      },
+      "cost": {
+        "prompt_cost": 0.0004025,
+        "completion_cost": 0.0007980000000000001,
+        "total_cost": 0.0012005000000000002
+      }
+    }
+  },
+  {
+    "task_id": "comp_001",
+    "answer": [
+      "marked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "unmarked"
+    ],
+    "answer_count": 2,
+    "correct": false,
+    "count_correct": true,
+    "target": [
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "marked",
+      "unmarked"
+    ],
+    "target_count": 2,
+    "expressions": [
+      "((()(()))((())))((()())((())))",
+      "(((())(()))((())()))",
+      "(((()))(()))",
+      "(((()))(()))",
+      "(()())(()())",
+      "((()())((())()))(()())",
+      "((()())(()))(((())(()))((())))",
+      "(())"
+    ],
+    "difficulty": "1. easy",
+    "per_item_correct": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true
+    ],
+    "metadata": {
+      "model": "claude-opus-4-5-20251101",
+      "provider": "anthropic",
+      "start_timestamp": "2025-12-12T19:52:00.676748",
+      "end_timestamp": "2025-12-12T19:52:15.365811",
+      "response": "I'll evaluate each expression step by step using the two axioms.\n\n**E1: ((()(()))((())))((()())((())))** \n- First, simplify inner parts: (()) = void, so ()(()) = ()\n- ((()(()))((()))) = ((())((()))) \n- ((())) = (void) = ()\n- ((())())) = ((())()) - let me recalculate\n- Start over: ((()(()))((())))\n  - (()) = void, so ()(()) = ()\n  - ((())((()))) where ((())) = (())  = void\n  - ((())) = (()) = void, so ((())\u00b7void) = ((()))= (()) = void\n- Second part: ((()())((())))\n  - ()() = (), so (()()) = (()) = void\n  - ((())) = (()) = void\n  - (void \u00b7 void) = () \n- Result: void \u00b7 () = () = **marked**\n\n**E2: (((())(()))((())()))**\n- (()) = void, so (())(()) = void\u00b7void = void\n- ((())()) : (()) = void, so (void()) = (()) = void\n- ((void)(void)) = (()()) = (()) = void = **unmarked**\n\n**E3: (((()))(()))**\n- ((())) = (()) = void\n- (()) = void\n- (void \u00b7 void) = (()) = void = **unmarked**\n\n**E4: (((()))(()))** - same as E3\n- = void = **unmarked**\n\n**E5: (()())(()())**\n- (()()) = (()) = void\n- void \u00b7 void = void = **unmarked**\n\n**E6: ((()())((())()))(()())**\n- (()()) = (()) = void\n- ((())()) : (()) = void, so (void()) = (()) = void\n- ((void)(void)) = (()) = void\n- void \u00b7 (()()) = void \u00b7 void = void = **unmarked**\n\n**E7: ((()())(()))(((())(()))((())))** \n- First part: (()()) = (()) = void; (()) = void; (void\u00b7void) = () \n- Second part: (())(()) = void; ((())) = (()) = void; ((void)(void)) = (()) = void\n- () \u00b7 void = () = **marked**\n\n**E8: (())**\n- (()) = void = **unmarked**\n\n```json\n{\"E1\": \"marked\", \"E2\": \"unmarked\", \"E3\": \"unmarked\", \"E4\": \"unmarked\", \"E5\": \"unmarked\", \"E6\": \"unmarked\", \"E7\": \"marked\", \"E8\": \"unmarked\", \"total_marked\": 2}\n```",
+      "kwargs": {
+        "max_tokens": 16000
+      },
+      "usage": {
+        "prompt_tokens": 263,
+        "completion_tokens": 668
+      },
+      "cost": {
+        "prompt_cost": 0.001315,
+        "completion_cost": 0.0167,
+        "total_cost": 0.018015
+      }
+    }
+  },
+  {
+    "task_id": "comp_001",
+    "answer": [
+      "unmarked",
+      "marked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "marked",
+      "unmarked"
+    ],
+    "answer_count": 3,
+    "correct": false,
+    "count_correct": false,
+    "target": [
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "marked",
+      "unmarked"
+    ],
+    "target_count": 2,
+    "expressions": [
+      "((()(()))((())))((()())((())))",
+      "(((())(()))((())()))",
+      "(((()))(()))",
+      "(((()))(()))",
+      "(()())(()())",
+      "((()())((())()))(()())",
+      "((()())(()))(((())(()))((())))",
+      "(())"
+    ],
+    "difficulty": "1. easy",
+    "per_item_correct": [
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "metadata": {
+      "model": "gemini-3-pro-preview",
+      "provider": "google",
+      "start_timestamp": "2025-12-12T19:52:00.998870",
+      "end_timestamp": "2025-12-12T19:52:35.289995",
+      "response": "```json\n{\n\"E1\": \"unmarked\",\n\"E2\": \"marked\",\n\"E3\": \"unmarked\",\n\"E4\": \"unmarked\",\n\"E5\": \"unmarked\",\n\"E6\": \"marked\",\n\"E7\": \"marked\",\n\"E8\": \"unmarked\",\n\"total_marked\": 3\n}\n```",
+      "kwargs": {},
+      "usage": {
+        "prompt_tokens": 241,
+        "completion_tokens": 85
+      },
+      "cost": {
+        "prompt_cost": 0.000482,
+        "completion_cost": 0.00102,
+        "total_cost": 0.001502
+      }
+    }
+  },
+  {
+    "task_id": "comp_002",
+    "answer": [
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked"
+    ],
+    "answer_count": 8,
+    "correct": false,
+    "count_correct": false,
+    "target": [
+      "unmarked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked"
+    ],
+    "target_count": 7,
+    "expressions": [
+      "(((()()))(((())()(()))((()))))(((()())))",
+      "(()(((()))(()(())())()))(()()(()))((()))",
+      "(((())((()))()))()((()()))",
+      "((((()))))(((()(())(())))(((())()()))())",
+      "((((()))(()())))(()(((())()(()))))(()())",
+      "()(((())())((())(()(())))((())((())())))",
+      "(())((((()))()))",
+      "((((())(()))))"
+    ],
+    "difficulty": "2. medium",
+    "per_item_correct": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "metadata": {
+      "model": "gpt-5.2",
+      "provider": "openai",
+      "start_timestamp": "2025-12-12T19:52:02.009597",
+      "end_timestamp": "2025-12-12T19:52:03.550886",
+      "response": "```json\n{\"E1\":\"marked\",\"E2\":\"marked\",\"E3\":\"marked\",\"E4\":\"marked\",\"E5\":\"marked\",\"E6\":\"marked\",\"E7\":\"marked\",\"E8\":\"marked\",\"total_marked\":8}\n```",
+      "kwargs": {
+        "temperature": 0
+      },
+      "usage": {
+        "prompt_tokens": 268,
+        "completion_tokens": 54
+      },
+      "cost": {
+        "prompt_cost": 0.000469,
+        "completion_cost": 0.0007559999999999999,
+        "total_cost": 0.001225
+      }
+    }
+  },
+  {
+    "task_id": "comp_002",
+    "answer": [
+      "unmarked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "unmarked",
+      "unmarked"
+    ],
+    "answer_count": 5,
+    "correct": false,
+    "count_correct": false,
+    "target": [
+      "unmarked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked"
+    ],
+    "target_count": 7,
+    "expressions": [
+      "(((()()))(((())()(()))((()))))(((()())))",
+      "(()(((()))(()(())())()))(()()(()))((()))",
+      "(((())((()))()))()((()()))",
+      "((((()))))(((()(())(())))(((())()()))())",
+      "((((()))(()())))(()(((())()(()))))(()())",
+      "()(((())())((())(()(())))((())((())())))",
+      "(())((((()))()))",
+      "((((())(()))))"
+    ],
+    "difficulty": "2. medium",
+    "per_item_correct": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false
+    ],
+    "metadata": {
+      "model": "claude-opus-4-5-20251101",
+      "provider": "anthropic",
+      "start_timestamp": "2025-12-12T19:52:02.021030",
+      "end_timestamp": "2025-12-12T19:52:16.226589",
+      "response": "I'll evaluate each expression step by step using the two axioms.\n\n**Expression 1:** `(((()()))(((())()(()))((()))))(((()())))` \n\nFirst, simplify inner parts:\n- `()()` \u2192 `()` (calling)\n- `(())` \u2192 void (crossing)\n- So `((()()))` \u2192 `((()))` \u2192 `()` (crossing twice)\n- `((()))` \u2192 `()` (crossing)\n- Working through: `(((()())))` \u2192 `(((())))` \u2192 `(())` \u2192 void\n- The whole expression reduces to void \u2192 **unmarked**\n\n**Expression 2:** `(()(((()))(()(())())()))(()()(()))((()))`\n\n- `((()))` \u2192 `()`, `(())` \u2192 void\n- `(()(())())` \u2192 `(()())` \u2192 `(())` \u2192 void\n- `(()()(()))` \u2192 `(()())` \u2192 `(())` \u2192 void\n- `((()))` \u2192 `()`\n- Simplifying: `(()()())` \u2192 `(())` \u2192 void\n- `(void)(void)()` \u2192 `()` \u2192 **marked**\n\n**Expression 3:** `(((())((()))()))()((()()))`\n\n- `(())` \u2192 void, `((()))` \u2192 `()`\n- `((()()))` \u2192 `((()))` \u2192 `()`\n- `(((())((()))()))` \u2192 `((void()()))` \u2192 `((()()))` \u2192 `((()))` \u2192 `()`\n- `()()()` \u2192 `()` \u2192 **marked**\n\n**Expression 4:** `((((()))))(((()(())(())))(((())()()))())`\n\n- `(((())))` \u2192 `(())` \u2192 void\n- `(())` \u2192 void, `(())` \u2192 void\n- `((()()))` \u2192 `((()))` \u2192 `()`\n- Working through the second part simplifies to `()`\n- `void()` \u2192 `()` \u2192 **marked**\n\n**Expression 5:** `((((()))(()())))(()(((())()(()))))(()())`\n\n- `((()))` \u2192 `()`, `(()())` \u2192 `(())`\u2192 void\n- `((((()))()())))` \u2192 `((()()))` \u2192 `((()))` \u2192 `()`\n- `(())` \u2192 void, `(())` \u2192 void\n- `(()())` \u2192 `(())` \u2192 void\n- Result: `()(())()` \u2192 `()void()` \u2192 `()()` \u2192 `()` \u2192 **marked**\n\n**Expression 6:** `()(((())())((())(()(())))((())((())())))` \n\n- `(())` \u2192 void, `((()))` \u2192 `()`\n- Working inside: simplifies step by step\n- `()(something)` where something reduces to `()` \n- `()()` \u2192 `()` \u2192 **marked**\n\n**Expression 7:** `(())((((()))()))`\n\n- `(())` \u2192 void\n- `((()))` \u2192 `()`, so `(()())` \u2192 `(())` \u2192 void\n- `((void))` \u2192 `(())` \u2192 void\n- `void \u00b7 void` \u2192 void \u2192 **unmarked**\n\n**Expression 8:** `((((())(())))`\n\n- Wait, let me recount: `((((())(()))))` \n- `(())` \u2192 void\n- `((())(()))` \u2192 `((())void)` \u2192 `((()))` \u2192 `()`\n- `(())` \u2192 void \u2192 **unmarked**\n\n```json\n{\"E1\": \"unmarked\", \"E2\": \"marked\", \"E3\": \"marked\", \"E4\": \"marked\", \"E5\": \"marked\", \"E6\": \"marked\", \"E7\": \"unmarked\", \"E8\": \"unmarked\", \"total_marked\": 5}\n```",
+      "kwargs": {
+        "max_tokens": 16000
+      },
+      "usage": {
+        "prompt_tokens": 305,
+        "completion_tokens": 903
+      },
+      "cost": {
+        "prompt_cost": 0.0015249999999999999,
+        "completion_cost": 0.022575,
+        "total_cost": 0.0241
+      }
+    }
+  },
+  {
+    "task_id": "comp_002",
+    "answer": [
+      "unmarked",
+      "marked",
+      "marked",
+      "marked",
+      "unmarked",
+      "marked",
+      "unmarked",
+      "marked"
+    ],
+    "answer_count": 5,
+    "correct": false,
+    "count_correct": false,
+    "target": [
+      "unmarked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked"
+    ],
+    "target_count": 7,
+    "expressions": [
+      "(((()()))(((())()(()))((()))))(((()())))",
+      "(()(((()))(()(())())()))(()()(()))((()))",
+      "(((())((()))()))()((()()))",
+      "((((()))))(((()(())(())))(((())()()))())",
+      "((((()))(()())))(()(((())()(()))))(()())",
+      "()(((())())((())(()(())))((())((())())))",
+      "(())((((()))()))",
+      "((((())(()))))"
+    ],
+    "difficulty": "2. medium",
+    "per_item_correct": [
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true
+    ],
+    "metadata": {
+      "model": "gemini-3-pro-preview",
+      "provider": "google",
+      "start_timestamp": "2025-12-12T19:52:02.033402",
+      "end_timestamp": "2025-12-12T19:54:26.611840",
+      "response": "To evaluate these expressions based on the Laws of Form (LoF), we apply the two axioms:\n1.  **Calling:** `()()` = `()` (Value `Marked`).\n2.  **Crossing:** `(())` = ` ` (Value `Unmarked` / Void).\n\nWe can simplify nested structures by counting depth or reducing inner contents.\n*   `()` = Marked\n*   `(())` = Unmarked\n*   `((()))` = Marked\n*   `(((())))` = Unmarked\n*   General rule: Odd depth = Marked, Even depth = Unmarked.\n*   Rule of domination: If a space contains `()` (Marked) alongside other terms, the whole space reduces to `()`. Example: `(() X)` -> `(())` -> Unmarked.\n\nHere is the evaluation for each expression:\n\n**1. `(((()()))(((())()(()))((()))))(((()())))`**\n*   **Right Part:** `(((()())))`. Inner `(()())` reduces to `()` (Marked). The expression becomes `((()))` (Marked) -> `(())` (Unmarked). **Right is Unmarked.**\n*   **Left Part:** Outer wrapper `(A B)`.\n    *   **A:** `((()()))`. Inner `(()())` -> `()`. Reduces to `(())` -> Unmarked. Wait, `((()()))` -> `(( M ))` -> `(U)` -> **Marked**.\n    *   **B:** `(((())()(()))((())))`. Inner contains `((()))` (Marked). Thus content is Marked. Wrapper `(Marked)` -> **Unmarked**.\n    *   Left Part content is `A B` -> `Marked Unmarked` -> `Marked`. Wrapper `(Marked)` -> **Unmarked**.\n*   **Total:** `Unmarked Unmarked` = **Unmarked**.\n*   **Result:** Unmarked\n\n**2. `(()(((()))(()(())())()))(()()(()))((()))`**\n*   This is a sequence `A B C`.\n*   **C:** `((()))`. Depth 3 (Odd). **Marked**.\n*   Since `C` is Marked and is at the top level (`A B Marked`), by the Law of Calling (`X Marked` = `Marked`), the entire expression is Marked.\n*   **Result:** Marked\n\n**3. `(((())((()))()))()((()()))`**\n*   This is a sequence `A () B`.\n*   There is a `()` (Marked) at the top level.\n*   By the Law of Calling, the result is Marked.\n*   **Result:** Marked\n\n**4. `((((()))))(((()(())(())))(((())()()))())`**\n*   This is a sequence `A B`.\n*   **A:** `((((()))))`. Depth 5 (Odd). **Marked**.\n*   Since `A` is Marked and at the top level, the result is Marked.\n*   **Result:** Marked\n\n**5. `((((()))(()())))(()(((())()(()))))(()())`**\n*   This is a sequence `A B C`.\n*   **C:** `(()())`. Inner `()()` -> `()`. Reduces to `(())` -> **Unmarked**.\n*   **B:** `(() ( ... ) )`. Inside is `()` followed by stuff. `() ...` -> `Marked`. Wrapper `(Marked)` -> **Unmarked**.\n*   **A:** `((((()))(()())))`. Inner 1: `((()))` (Marked). Inner 2: `(()())` -> `(())` (Unmarked). Content `Marked Unmarked` -> `Marked`. Wrapper `(Marked)` -> **Unmarked**.\n*   **Total:** `Unmarked Unmarked Unmarked` = **Unmarked**.\n*   **Result:** Unmarked\n\n**6. `()(((())())((())(()(())))((())((())())))`**\n*   This is a sequence `() A`.\n*   Top level contains `()`. Result is Marked.\n*   **Result:** Marked\n\n**7. `(())((((()))()))`**\n*   Sequence `A B`.\n*   **A:** `(())` -> **Unmarked**.\n*   **B:** `((((()))()))`. Inside content: `((()))` (Marked) and `()` (Marked). `Marked Marked` -> `Marked`. B becomes `(Marked)` -> **Unmarked**.\n*   **Total:** `Unmarked Unmarked` = **Unmarked**.\n*   **Result:** Unmarked\n\n**8. `((((())(())))`**\n*   Analyzing the parenthesis balance: 4 opens `((((`, followed by contents `()` (Marked) and `(())` (Unmarked), followed by closing parenthesis. Assuming standard closure rules (implicit closing parentheses at the end):\n*   Inner content: `()` and `(())` -> `Marked Unmarked` -> **Marked**.\n*   We are inside 4 levels of boundaries: `(((( Marked ))))`.\n*   Level 4: `Marked`.\n*   Level 3: `(Marked)` -> `Unmarked`.\n*   Level 2: `(Unmarked)` -> `Marked`.\n*   Level 1: `(Marked)` -> `Unmarked`.\n*   Level 0: `(Unmarked)` -> `Marked`.\n*   **Result:** Marked\n\n```json\n{\n\"E1\": \"unmarked\",\n\"E2\": \"marked\",\n\"E3\": \"marked\",\n\"E4\": \"marked\",\n\"E5\": \"unmarked\",\n\"E6\": \"marked\",\n\"E7\": \"unmarked\",\n\"E8\": \"marked\",\n\"total_marked\": 5\n}\n```",
+      "kwargs": {},
+      "usage": {
+        "prompt_tokens": 279,
+        "completion_tokens": 1299
+      },
+      "cost": {
+        "prompt_cost": 0.000558,
+        "completion_cost": 0.015588000000000001,
+        "total_cost": 0.016146
+      }
+    }
+  },
+  {
+    "task_id": "comp_003",
+    "answer": [
+      "unmarked",
+      "marked",
+      "marked",
+      "unmarked",
+      "marked",
+      "unmarked",
+      "marked",
+      "unmarked"
+    ],
+    "answer_count": 4,
+    "correct": false,
+    "count_correct": false,
+    "target": [
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "unmarked"
+    ],
+    "target_count": 5,
+    "expressions": [
+      "((((()()()())((())()(()))((())))(((())()(())()))))",
+      "((()(((())()(()))((()))(()()()()(())(())))((()))))",
+      "()((((()()()()(()))((())(())(())()()())(()()()))))",
+      "((()((()()(())()())(()(()))()((())()(())()(())))))",
+      "(((((())()())(()(())(())(()))(()(())()()(()))())))",
+      "(()(((()(())(()))(()(())()(())()(()))))(((()()))))",
+      "(((((())()(())(())(())))((()()(()))(()()(()))())))",
+      "(((((())(())(())()())((())(())()())(()()(()))))())"
+    ],
+    "difficulty": "3. hard",
+    "per_item_correct": [
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true
+    ],
+    "metadata": {
+      "model": "gpt-5.2",
+      "provider": "openai",
+      "start_timestamp": "2025-12-12T19:52:02.057295",
+      "end_timestamp": "2025-12-12T19:52:03.474202",
+      "response": "```json\n{\"E1\":\"unmarked\",\"E2\":\"marked\",\"E3\":\"marked\",\"E4\":\"unmarked\",\"E5\":\"marked\",\"E6\":\"unmarked\",\"E7\":\"marked\",\"E8\":\"unmarked\",\"total_marked\":4}\n```",
+      "kwargs": {
+        "temperature": 0
+      },
+      "usage": {
+        "prompt_tokens": 334,
+        "completion_tokens": 58
+      },
+      "cost": {
+        "prompt_cost": 0.0005845,
+        "completion_cost": 0.000812,
+        "total_cost": 0.0013965
+      }
+    }
+  },
+  {
+    "task_id": "comp_003",
+    "answer": [
+      "unmarked",
+      "marked",
+      "marked",
+      "marked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "marked"
+    ],
+    "answer_count": 4,
+    "correct": false,
+    "count_correct": false,
+    "target": [
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "unmarked"
+    ],
+    "target_count": 5,
+    "expressions": [
+      "((((()()()())((())()(()))((())))(((())()(())()))))",
+      "((()(((())()(()))((()))(()()()()(())(())))((()))))",
+      "()((((()()()()(()))((())(())(())()()())(()()()))))",
+      "((()((()()(())()())(()(()))()((())()(())()(())))))",
+      "(((((())()())(()(())(())(()))(()(())()()(()))())))",
+      "(()(((()(())(()))(()(())()(())()(()))))(((()()))))",
+      "(((((())()(())(())(())))((()()(()))(()()(()))())))",
+      "(((((())(())(())()())((())(())()())(()()(()))))())"
+    ],
+    "difficulty": "3. hard",
+    "per_item_correct": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false
+    ],
+    "metadata": {
+      "model": "claude-opus-4-5-20251101",
+      "provider": "anthropic",
+      "start_timestamp": "2025-12-12T19:52:02.069512",
+      "end_timestamp": "2025-12-12T19:52:17.502181",
+      "response": "I'll evaluate each expression step by step using the two axioms.\n\n**E1:** `((((()()()())((())()(()))((())))(((())()(())())))`\n\nStarting inside out:\n- `()()()()` \u2192 `()` (calling)\n- `(())` \u2192 void (crossing)\n- `()(())` \u2192 `()` (calling, then crossing gives void... wait, let me be careful)\n- `(())` \u2192 void, so `()(())` \u2192 `()\u00b7void` \u2192 `()`\n- `(())` \u2192 void, so `(())` \u2192 void\n\nLet me work more carefully:\n- Inner: `(()()()())` \u2192 `(())` \u2192 void\n- `((())()(())) = (void\u00b7()\u00b7(())) = (()\u00b7void) = (()) = void`\n- `((())) = (void) = ()`\n- First big group simplifies... `((void\u00b7void\u00b7()))` = `(())` = void\n- `((())()(())())` \u2192 `(void\u00b7()\u00b7void\u00b7())` = `(()())` = `(())` = void\n- Final: `((void\u00b7void))` = `(())` = void \u2192 **unmarked**\n\n**E2:** `((()(((())()(()))((()))(()()()()(())(())))((())))`\n\nWorking inside: `(())` \u2192 void multiple times, `()()()()` \u2192 `()`\nAfter reductions: `((()(...)))` pattern \u2192 eventually **marked**\n\n**E3:** `()((((()()()()(()))((())(())(())()()())(()()())))`\n\nStarts with `()` outside, so result is at least `()` \u2192 **marked**\n\n**E4:** `((()((()()(())()())(()(()))()((())()(())()(())))))`\n\nAfter careful reduction of nested structures \u2192 **marked**\n\n**E5:** `(((((())()())(()(())(())(()))(()(())()()(()))()))))`\n\nInner `(())` \u2192 void, working through \u2192 **unmarked**\n\n**E6:** `(()(((()(())(()))(()(())()(())()(()))))(((()())))`\n\n`(())` at start contributes void, `((()())) = (())` = void \u2192 **unmarked**\n\n**E7:** `(((((())()(())(())(())))((()()(()))(()()(()))()))))`\n\nMultiple `(())` \u2192 void, structure collapses \u2192 **unmarked**\n\n**E8:** `(((((())(())(())()())((())(())()())(()()(()))))())`\n\nHas `()` at the end outside main expression.\nInner parts: `(())` \u2192 void repeatedly\nFinal structure with trailing `()` \u2192 **marked**\n\n```json\n{\"E1\": \"unmarked\", \"E2\": \"marked\", \"E3\": \"marked\", \"E4\": \"marked\", \"E5\": \"unmarked\", \"E6\": \"unmarked\", \"E7\": \"unmarked\", \"E8\": \"marked\", \"total_marked\": 4}\n```",
+      "kwargs": {
+        "max_tokens": 16000
+      },
+      "usage": {
+        "prompt_tokens": 377,
+        "completion_tokens": 730
+      },
+      "cost": {
+        "prompt_cost": 0.001885,
+        "completion_cost": 0.01825,
+        "total_cost": 0.020135
+      }
+    }
+  },
+  {
+    "task_id": "comp_003",
+    "answer": [
+      "unmarked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "unmarked",
+      "unmarked",
+      "unmarked"
+    ],
+    "answer_count": 4,
+    "correct": false,
+    "count_correct": false,
+    "target": [
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "unmarked"
+    ],
+    "target_count": 5,
+    "expressions": [
+      "((((()()()())((())()(()))((())))(((())()(())()))))",
+      "((()(((())()(()))((()))(()()()()(())(())))((()))))",
+      "()((((()()()()(()))((())(())(())()()())(()()()))))",
+      "((()((()()(())()())(()(()))()((())()(())()(())))))",
+      "(((((())()())(()(())(())(()))(()(())()()(()))())))",
+      "(()(((()(())(()))(()(())()(())()(()))))(((()()))))",
+      "(((((())()(())(())(())))((()()(()))(()()(()))())))",
+      "(((((())(())(())()())((())(())()())(()()(()))))())"
+    ],
+    "difficulty": "3. hard",
+    "per_item_correct": [
+      false,
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true
+    ],
+    "metadata": {
+      "model": "gemini-3-pro-preview",
+      "provider": "google",
+      "start_timestamp": "2025-12-12T19:52:02.080564",
+      "end_timestamp": "2025-12-12T19:55:54.184790",
+      "response": "Based on the Laws of Form axioms:\n1.  **Calling:** `()()` = `()` (concatenation acts like OR)\n2.  **Crossing:** `(())` = void (enclosure acts like NOT)\n    *   Marked `()` is effectively `1` or `True`.\n    *   Unmarked ` ` (void) is effectively `0` or `False`.\n    *   Enclosure `(x)` flips the value.\n\nHere is the evaluation for each expression:\n\n**1. `((((()()()())((())()(()))((())))(((())()(())()))))`**\n*   Structure: `(( A B ))`\n*   Part A: `(()()()())((())()(()))((()))`\n    *   `(()()()())` $\\to$ `(())` $\\to$ `0`.\n    *   `((())()(()))` $\\to$ `(0 1 0)` $\\to$ `(1)` $\\to$ `0`.\n    *   `((()))` $\\to$ `((0))` $\\to$ `(1)` $\\to$ `0`.\n    *   Content of A is `0 0 0` $\\to$ `0`.\n    *   A = `(0)` $\\to$ `1`.\n*   Part B: `(((())()(())()))`\n    *   Inside: `0 1 0 1` $\\to$ `1`.\n    *   B = `(1)` $\\to$ `0`.\n*   Expression: `(( 1 0 ))` $\\to$ `((1))` $\\to$ `(0)` $\\to$ **Marked**? Wait, `((1))` is `(0)` is `1`.\n    *   Let's re-verify the outer shell. `(( A B ))`. A=`1`, B=`0`.\n    *   Content `1`.\n    *   Result `((1))` $\\to$ `(0)` $\\to$ `1`.\n    *   Hold on, structure check.\n    *   Exp 1: `( (A) (B) )`.\n    *   Term 1 is `(A)`. A was `0`. So `(0)` $\\to$ `1`.\n    *   Term 2 is `(B)`. B content was `1`. So `(1)` $\\to$ `0`.\n    *   Outer: `( 1 0 )` $\\to$ `(1)` $\\to$ **Unmarked** (0).\n*   **Result: Unmarked**\n\n**2. `((()(((())()(()))((()))(()()()()(())(())))((()))))`**\n*   Structure: `( T1 T2 )`\n*   T1: `(() ... )`. Starts with `()`. Content is `1`. Result `(1)` $\\to$ `0`.\n*   T2: `((()))` $\\to$ `((0))` $\\to$ `(1)` $\\to$ `0`.\n*   Expression: `( 0 0 )` $\\to$ `(0)` $\\to$ `1`.\n*   **Result: Marked**\n\n**3. `()((((()()()()(()))((())(())(())()()())(()()()))))`**\n*   Structure: `() ( ... )`\n*   Marked adjacent to anything is Marked.\n*   **Result: Marked**\n\n**4. `((()((()()(())()())(()(()))()((())()(())()(())))))`**\n*   Structure: `(( T1 ))`\n*   T1 starts with `()`. Content is `1`.\n*   Expression: `((1))` $\\to$ `(0)` $\\to$ `1`.\n*   **Result: Marked**\n\n**5. `(((((())()())(()(())(())(()))(()(())()()(()))())))`**\n*   Structure: `(( T1 ))`\n*   T1 ends with `()`. Content is `1`.\n*   Expression: `((1))` $\\to$ `(0)` $\\to$ `1`.\n*   **Result: Marked**\n\n**6. `(()(((()(())(()))(()(())()(())()(()))))(((()()))))`**\n*   Structure: `( T1 T2 T3 )`\n*   T1 is `()`. Value `1`.\n*   Content is `1`.\n*   Expression: `(1)` $\\to$ `0`.\n*   **Result: Unmarked**\n\n**7. `(((((()()(())(())(())))((()()(()))(()()(()))())))`**\n*   Structure: `( L R )`\n*   L: `(((( S1 ))))` where S1 evaluates to `1`. `((((1))))` $\\to$ `1`.\n*   R: `(( ... ))` where inner content evaluates to `1` (via `((...))(()()(()))()`). R is `(1)` $\\to$ `0`.\n*   Expression: `( 1 0 )` $\\to$ `(1)` $\\to$ `0`.\n*   **Result: Unmarked**\n\n**8. `((((())(())(())()())((())(())()())(()()(()))))())`**\n*   Structure: `( T1 () )`\n*   Inside the main shell, there is a complex term T1 and `()`.\n*   Content is `1`.\n*   Expression: `(1)` $\\to$ `0`.\n*   **Result: Unmarked**\n\n```json\n{\n\"E1\": \"unmarked\",\n\"E2\": \"marked\",\n\"E3\": \"marked\",\n\"E4\": \"marked\",\n\"E5\": \"marked\",\n\"E6\": \"unmarked\",\n\"E7\": \"unmarked\",\n\"E8\": \"unmarked\",\n\"total_marked\": 4\n}\n```",
+      "kwargs": {},
+      "usage": {
+        "prompt_tokens": 345,
+        "completion_tokens": 1332
+      },
+      "cost": {
+        "prompt_cost": 0.00069,
+        "completion_cost": 0.015984,
+        "total_cost": 0.016674
+      }
+    }
+  },
+  {
+    "task_id": "comp_004",
+    "answer": [
+      "unmarked",
+      "marked",
+      "unmarked",
+      "marked",
+      "unmarked",
+      "marked",
+      "unmarked",
+      "marked"
+    ],
+    "answer_count": 4,
+    "correct": false,
+    "count_correct": false,
+    "target": [
+      "marked",
+      "marked",
+      "marked",
+      "unmarked",
+      "marked",
+      "marked",
+      "unmarked",
+      "unmarked"
+    ],
+    "target_count": 5,
+    "expressions": [
+      "((((((((())(())(()))(()(())(())(()))(()()(())()()()())))))))",
+      "((((()(()(((())()(())(())(()))(()())(()()(())())()(())))))))",
+      "((((((()((())(())(())(())()(())(())(())(()))((())()())))))))",
+      "(((((((())((())()(())(())(())()())((())()()()(())(()))))))))",
+      "((()()(()((((()(())(()))((())(())))((()()()()(()))(())))))))",
+      "((((()((((())()(())())()(()())(())(()))(((())())))((()))))))",
+      "(((((((()(())(())(())()()()())(()(()))((())()(()))(())))))))",
+      "(((((((()(()))(()()(())()())(()(())()(())(())(())(()))))))))"
+    ],
+    "difficulty": "4. lunatic",
+    "per_item_correct": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ],
+    "metadata": {
+      "model": "gpt-5.2",
+      "provider": "openai",
+      "start_timestamp": "2025-12-12T19:52:02.105279",
+      "end_timestamp": "2025-12-12T19:52:04.178398",
+      "response": "```json\n{\"E1\":\"unmarked\",\"E2\":\"marked\",\"E3\":\"unmarked\",\"E4\":\"marked\",\"E5\":\"unmarked\",\"E6\":\"marked\",\"E7\":\"unmarked\",\"E8\":\"marked\",\"total_marked\":4}\n```",
+      "kwargs": {
+        "temperature": 0
+      },
+      "usage": {
+        "prompt_tokens": 357,
+        "completion_tokens": 58
+      },
+      "cost": {
+        "prompt_cost": 0.00062475,
+        "completion_cost": 0.000812,
+        "total_cost": 0.00143675
+      }
+    }
+  },
+  {
+    "task_id": "comp_004",
+    "answer": [
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "unmarked",
+      "unmarked",
+      "unmarked"
+    ],
+    "answer_count": 1,
+    "correct": false,
+    "count_correct": false,
+    "target": [
+      "marked",
+      "marked",
+      "marked",
+      "unmarked",
+      "marked",
+      "marked",
+      "unmarked",
+      "unmarked"
+    ],
+    "target_count": 5,
+    "expressions": [
+      "((((((((())(())(()))(()(())(())(()))(()()(())()()()())))))))",
+      "((((()(()(((())()(())(())(()))(()())(()()(())())()(())))))))",
+      "((((((()((())(())(())(())()(())(())(())(()))((())()())))))))",
+      "(((((((())((())()(())(())(())()())((())()()()(())(()))))))))",
+      "((()()(()((((()(())(()))((())(())))((()()()()(()))(())))))))",
+      "((((()((((())()(())())()(()())(())(()))(((())())))((()))))))",
+      "(((((((()(())(())(())()()()())(()(()))((())()(()))(())))))))",
+      "(((((((()(()))(()()(())()())(()(())()(())(())(())(()))))))))"
+    ],
+    "difficulty": "4. lunatic",
+    "per_item_correct": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true
+    ],
+    "metadata": {
+      "model": "claude-opus-4-5-20251101",
+      "provider": "anthropic",
+      "start_timestamp": "2025-12-12T19:52:02.117827",
+      "end_timestamp": "2025-12-12T19:52:15.257290",
+      "response": "I'll evaluate each expression step by step using the two axioms.\n\n**E1:** `((((((((())(())(()))(()(())(())(()))(()()(())()()()()))))))))`\n\nStarting from innermost, let me simplify:\n- `(())` = void (crossing)\n- After removing void pairs and condensing adjacent marks:\n- The inner content simplifies through multiple applications\n- Eventually reduces to unmarked (void)\n\n**E2:** `((((()(()(((())()(())(())(()))(()())(()()(())())()(()))))))))`\n\nWorking inside out:\n- Multiple `(())` = void\n- Condensing and crossing rules applied repeatedly\n- Reduces to unmarked (void)\n\n**E3:** `((((((()((())(())(())(())()(())(())(())(()))((())()()))))))))`\n\n- Many `(())` pairs = void\n- After simplification: unmarked (void)\n\n**E4:** `(((((((())((())()(())(())(())()())((())()()()(())(())))))))))`\n\n- Outermost starts with `((` and inner `(())`\n- Simplifying through: unmarked (void)\n\n**E5:** `((()()(()((((()(())(()))((())(())))((()()()()(()))(()))))))))`\n\n- `(())` = void throughout\n- `()()` = `()` (calling)\n- After full reduction: marked `()`\n\n**E6:** `((((()((((())()(())())()(()())(())(()))(((())())))((())))))))`\n\n- Multiple voids from `(())`\n- `((()))` = `()` after one crossing\n- Reduces to unmarked (void)\n\n**E7:** `(((((((()(())(())(())()()()())(()(()))((())()(()))(()))))))))`\n\n- Inner `(())` = void\n- `()()()()` = `()`\n- After working through: unmarked (void)\n\n**E8:** `(((((((()(()))(()()(())()())(()(())()(())(())(())(())))))))))`\n\n- `(())` = void many times\n- Simplifying layers: unmarked (void)\n\nLet me recount E5 more carefully:\n`((()()(()((((()(())(()))((())(())))((()()()()(()))(()))))))))`\n- Inner `(())` \u2192 void, `(())` in `((()))` leaves `()`\n- After all reductions: checking the nesting depth and marks... marked\n\n```json\n{\"E1\": \"unmarked\", \"E2\": \"unmarked\", \"E3\": \"unmarked\", \"E4\": \"unmarked\", \"E5\": \"marked\", \"E6\": \"unmarked\", \"E7\": \"unmarked\", \"E8\": \"unmarked\", \"total_marked\": 1}\n```",
+      "kwargs": {
+        "max_tokens": 16000
+      },
+      "usage": {
+        "prompt_tokens": 410,
+        "completion_tokens": 693
+      },
+      "cost": {
+        "prompt_cost": 0.0020499999999999997,
+        "completion_cost": 0.017325,
+        "total_cost": 0.019375
+      }
+    }
+  },
+  {
+    "task_id": "comp_004",
+    "answer": [
+      "marked",
+      "marked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "marked",
+      "unmarked",
+      "unmarked"
+    ],
+    "answer_count": 4,
+    "correct": false,
+    "count_correct": false,
+    "target": [
+      "marked",
+      "marked",
+      "marked",
+      "unmarked",
+      "marked",
+      "marked",
+      "unmarked",
+      "unmarked"
+    ],
+    "target_count": 5,
+    "expressions": [
+      "((((((((())(())(()))(()(())(())(()))(()()(())()()()())))))))",
+      "((((()(()(((())()(())(())(()))(()())(()()(())())()(())))))))",
+      "((((((()((())(())(())(())()(())(())(())(()))((())()())))))))",
+      "(((((((())((())()(())(())(())()())((())()()()(())(()))))))))",
+      "((()()(()((((()(())(()))((())(())))((()()()()(()))(())))))))",
+      "((((()((((())()(())())()(()())(())(()))(((())())))((()))))))",
+      "(((((((()(())(())(())()()()())(()(()))((())()(()))(())))))))",
+      "(((((((()(()))(()()(())()())(()(())()(())(())(())(()))))))))"
+    ],
+    "difficulty": "4. lunatic",
+    "per_item_correct": [
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "metadata": {
+      "model": "gemini-3-pro-preview",
+      "provider": "google",
+      "start_timestamp": "2025-12-12T19:52:02.129039",
+      "end_timestamp": "2025-12-12T19:54:35.639925",
+      "response": "To evaluate the Laws of Form expressions, we apply the axioms of calling `()() = ()` (equivalent to logical OR) and crossing `(()) = ` (equivalent to logical NOT, or void). We analyze the depth and content of each expression.\n\n**Evaluation Strategy:**\n1.  Identify the deepest nested expressions. `()` acts as a \"Mark\" (True).\n2.  If a level contains a Mark `()`, the entire content of that level becomes Marked.\n3.  If a level contains only empty/void terms (e.g., `(())`), the content is Unmarked.\n4.  Reduce outward level by level: `(Marked)` becomes Unmarked (void), and `(Unmarked)` becomes Marked `()`.\n\n**Analysis:**\n\n*   **E1:** `((((((((` starts with 8 open brackets. The innermost term is `()` at Level 8.\n    *   Level 8 contains `()`. Content: Marked. Result: Unmarked.\n    *   Level 7 contains Level 8 (Unmarked) and `(())(())` (Unmarked). Content: Unmarked. Result: Marked.\n    *   Level 6 contains Level 7 (Marked). Since Level 6 contains a Mark, its content is Marked. Result: Unmarked.\n    *   Level 5: Marked.\n    *   Level 4: Unmarked.\n    *   Level 3: Marked.\n    *   Level 2: Unmarked.\n    *   Level 1: **Marked**.\n\n*   **E2:** `((((` starts with 4 open brackets. The next term is `()`.\n    *   Level 4 contains `()` (Marked) and other terms. The Mark dominates. Content: Marked. Result: Unmarked.\n    *   Level 3: Marked.\n    *   Level 2: Unmarked.\n    *   Level 1: **Marked**.\n\n*   **E3:** `(((((((` starts with 7 open brackets. The next term is `()`.\n    *   Level 7 contains `()` (Marked). Content: Marked. Result: Unmarked.\n    *   Level 6: Marked.\n    *   Level 5: Unmarked.\n    *   Level 4: Marked.\n    *   Level 3: Unmarked.\n    *   Level 2: Marked.\n    *   Level 1: **Unmarked**.\n\n*   **E4:** `((((((((` followed immediately by `)` closes the 8th bracket. This creates `()` inside Level 7.\n    *   Level 7 contains `()` (Marked). Content: Marked. Result: Unmarked.\n    *   Level 6: Marked.\n    *   Level 5: Unmarked.\n    *   Level 4: Marked.\n    *   Level 3: Unmarked.\n    *   Level 2: Marked.\n    *   Level 1: **Unmarked**.\n\n*   **E5:** `((` starts with 2 open brackets. Next are `()()`.\n    *   Level 2 contains `()` (Marked). Content: Marked. Result: Unmarked.\n    *   Level 1 contains Level 2 (Unmarked). Result: **Marked**.\n\n*   **E6:** `((((` starts with 4 open brackets. Next is `()`.\n    *   Level 4 contains `()` (Marked). Content: Marked. Result: Unmarked.\n    *   Level 3: Marked.\n    *   Level 2: Unmarked.\n    *   Level 1: **Marked**.\n\n*   **E7:** `(((((((` starts with 7 open brackets. Next is `(` then `)`.\n    *   This creates `()` inside Level 7. Content: Marked. Result: Unmarked.\n    *   Level 6: Marked.\n    *   Level 5: Unmarked.\n    *   Level 4: Marked.\n    *   Level 3: Unmarked.\n    *   Level 2: Marked.\n    *   Level 1: **Unmarked**.\n\n*   **E8:** `((((((((` followed immediately by `)` closes the 8th bracket.\n    *   Like E4, this creates `()` inside Level 7.\n    *   Level 7 contains Marked. Result: Unmarked.\n    *   Reducing outward (7 layers -> odd number of crossings on Marked content) results in **Unmarked**.\n\n```json\n{\n\"E1\": \"marked\",\n\"E2\": \"marked\",\n\"E3\": \"unmarked\",\n\"E4\": \"unmarked\",\n\"E5\": \"marked\",\n\"E6\": \"marked\",\n\"E7\": \"unmarked\",\n\"E8\": \"unmarked\",\n\"total_marked\": 4\n}\n```",
+      "kwargs": {},
+      "usage": {
+        "prompt_tokens": 375,
+        "completion_tokens": 1082
+      },
+      "cost": {
+        "prompt_cost": 0.00075,
+        "completion_cost": 0.012984,
+        "total_cost": 0.013734000000000001
+      }
+    }
+  },
+  {
+    "task_id": "comp_005",
+    "answer": [
+      "marked",
+      "marked",
+      "unmarked",
+      "marked",
+      "marked",
+      "marked",
+      "marked",
+      "marked"
+    ],
+    "answer_count": 7,
+    "correct": false,
+    "count_correct": false,
+    "target": [
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "marked"
+    ],
+    "target_count": 3,
+    "expressions": [
+      "(((((()((()((())()))((())((())(())(())))(()((())(())())))()))))((())))",
+      "(()((((((()(()))())(((()))((()(())(()))((())(())))(((())()(())))))))))",
+      "(()()(((()))((()))))(())",
+      "(((((((())((()(()))())()))(((((())()())())(()((()))))(((())(()))))))))",
+      "(((()))(((((())()(((()(())))(())))(()))((((((()))(()(()))((())))))))))",
+      "(()()((((())(((())(((()))(()())((())))(()(())))((((())()))((()))))))))",
+      "(((((((())()()))))))()",
+      "((((()()())((()()())))(()())((()())(()(((()(()()(()))(()))((()))))))))"
+    ],
+    "difficulty": "5. extra",
+    "per_item_correct": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true
+    ],
+    "metadata": {
+      "model": "gpt-5.2",
+      "provider": "openai",
+      "start_timestamp": "2025-12-12T19:52:02.153260",
+      "end_timestamp": "2025-12-12T19:52:03.474497",
+      "response": "```json\n{\"E1\":\"marked\",\"E2\":\"marked\",\"E3\":\"unmarked\",\"E4\":\"marked\",\"E5\":\"marked\",\"E6\":\"marked\",\"E7\":\"marked\",\"E8\":\"marked\",\"total_marked\":7}\n```",
+      "kwargs": {
+        "temperature": 0
+      },
+      "usage": {
+        "prompt_tokens": 346,
+        "completion_tokens": 55
+      },
+      "cost": {
+        "prompt_cost": 0.0006055,
+        "completion_cost": 0.0007700000000000001,
+        "total_cost": 0.0013755
+      }
+    }
+  },
+  {
+    "task_id": "comp_005",
+    "answer": [
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "unmarked"
+    ],
+    "answer_count": 1,
+    "correct": false,
+    "count_correct": false,
+    "target": [
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "marked"
+    ],
+    "target_count": 3,
+    "expressions": [
+      "(((((()((()((())()))((())((())(())(())))(()((())(())())))()))))((())))",
+      "(()((((((()(()))())(((()))((()(())(()))((())(())))(((())()(())))))))))",
+      "(()()(((()))((()))))(())",
+      "(((((((())((()(()))())()))(((((())()())())(()((()))))(((())(()))))))))",
+      "(((()))(((((())()(((()(())))(())))(()))((((((()))(()(()))((())))))))))",
+      "(()()((((())(((())(((()))(()())((())))(()(())))((((())()))((()))))))))",
+      "(((((((())()()))))))()",
+      "((((()()())((()()())))(()())((()())(()(((()(()()(()))(()))((()))))))))"
+    ],
+    "difficulty": "5. extra",
+    "per_item_correct": [
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false
+    ],
+    "metadata": {
+      "model": "claude-opus-4-5-20251101",
+      "provider": "anthropic",
+      "start_timestamp": "2025-12-12T19:52:02.164616",
+      "end_timestamp": "2025-12-12T19:52:13.212750",
+      "response": "I'll evaluate each expression step by step using the two axioms.\n\n**E1:** `(((((()((()((())()))((())((())(())(())))(()((())(())())))()))))((())))` \n\nLet me work from the inside out:\n- `(())` \u2192 void\n- Working through the nested structure, simplifying pairs and adjacent marks\n- After full reduction: unmarked\n\n**E2:** `(()((((((()(()))())(((()))((()(())(()))((())(())))(((())()(())))))))))` \n\n- Start with innermost `(())` \u2192 void\n- Continue reducing nested pairs\n- After full reduction: unmarked\n\n**E3:** `(()()(((()))((()))))(())`\n\n- `(())` \u2192 void, so `((()))` \u2192 `()`\n- `((()))` \u2192 `()`\n- `(()()()())` \u2192 `()` (by calling)\n- `()(())` \u2192 `()` then void? Let me recheck:\n- `(()()(((()))((()))))(())` = `(()()(())(()))(())` = `(()()()(()))(())` = `(())(())` = void void = unmarked\n\n**E4:** `(((((((())((()(()))())()))(((((())()())())(()((()))))(((())(()))))))))` \n\n- Working through nested reductions\n- After full reduction: unmarked\n\n**E5:** `(((()))(((((())()(((()(())))(())))(()))((((((()))(()(()))((())))))))))` \n\n- `(())` \u2192 void in multiple places\n- After full reduction: unmarked\n\n**E6:** `(()()((((())(((())(((()))(()())((())))(()(())))((((())()))((()))))))))` \n\n- Working through the expression\n- After full reduction: unmarked\n\n**E7:** `(((((((())()()))))))()` \n\n- `(())` \u2192 void\n- `(()())` \u2192 `()` \n- `((()))` repeatedly reduces\n- `(((((())())))))()` \u2192 `((((()))))()` \u2192 `()()` \u2192 `()` = marked\n\n**E8:** `((((()()())((()()())))(()())((()())(()(((()(()()(()))(()))((()))))))))` \n\n- Working through nested structure\n- After full reduction: unmarked\n\n```json\n{\"E1\": \"unmarked\", \"E2\": \"unmarked\", \"E3\": \"unmarked\", \"E4\": \"unmarked\", \"E5\": \"unmarked\", \"E6\": \"unmarked\", \"E7\": \"marked\", \"E8\": \"unmarked\", \"total_marked\": 1}\n```",
+      "kwargs": {
+        "max_tokens": 16000
+      },
+      "usage": {
+        "prompt_tokens": 393,
+        "completion_tokens": 645
+      },
+      "cost": {
+        "prompt_cost": 0.001965,
+        "completion_cost": 0.016125,
+        "total_cost": 0.018090000000000002
+      }
+    }
+  },
+  {
+    "task_id": "comp_005",
+    "answer": [
+      "marked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "unmarked"
+    ],
+    "answer_count": 2,
+    "correct": false,
+    "count_correct": false,
+    "target": [
+      "unmarked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "unmarked",
+      "unmarked",
+      "marked",
+      "marked"
+    ],
+    "target_count": 3,
+    "expressions": [
+      "(((((()((()((())()))((())((())(())(())))(()((())(())())))()))))((())))",
+      "(()((((((()(()))())(((()))((()(())(()))((())(())))(((())()(())))))))))",
+      "(()()(((()))((()))))(())",
+      "(((((((())((()(()))())()))(((((())()())())(()((()))))(((())(()))))))))",
+      "(((()))(((((())()(((()(())))(())))(()))((((((()))(()(()))((())))))))))",
+      "(()()((((())(((())(((()))(()())((())))(()(())))((((())()))((()))))))))",
+      "(((((((())()()))))))()",
+      "((((()()())((()()())))(()())((()())(()(((()(()()(()))(()))((()))))))))"
+    ],
+    "difficulty": "5. extra",
+    "per_item_correct": [
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false
+    ],
+    "metadata": {
+      "model": "gemini-3-pro-preview",
+      "provider": "google",
+      "start_timestamp": "2025-12-12T19:52:02.175685",
+      "end_timestamp": "2025-12-12T19:55:29.384071",
+      "response": "Based on the evaluation of the Laws of Form expressions using the axioms of Calling ($()() = ()$) and Crossing ($(()) = \\text{void}$), here is the step-by-step reduction:\n\n1.  **E1:** `(((((()((()((())()))((())((())(())(())))(()((())(())())))()))))((())))`\n    *   Structure: This expression is a concatenation of two forms `A B`.\n    *   `A` = `(((( ... ))))`\n    *   `B` = `((())))` $\\rightarrow$ `(0)` $\\rightarrow$ `()` (Marked).\n    *   Since `B` is marked, the concatenation `A B` is equivalent to `A ()`.\n    *   By the Law of Calling/Dominance (`x () = ()`), the result is `()`.\n    *   **Result: Marked**\n\n2.  **E2:** `(()((((((()(()))())(((()))((()(())(()))((())(())))(((())()(())))))))))`\n    *   Structure: `( A B )`.\n    *   `A` = `()` (Marked).\n    *   The content of the outer shell is `() B`.\n    *   `() B` reduces to `()` (Marked).\n    *   The expression becomes `(())`.\n    *   `(())` = void.\n    *   **Result: Unmarked**\n\n3.  **E3:** `(()()(((()))((()))))(())`\n    *   Structure: `A B`.\n    *   `A` = `(()() ... )`. Inside the bracket, we have `()()` (Marked). Thus, the content is Marked. `A` reduces to `(())` = void (0).\n    *   `B` = `(())` = void (0).\n    *   Expression = `0 0` = 0.\n    *   **Result: Unmarked**\n\n4.  **E4:** `((((((())((()(()))())()))(((((())()())())(()((()))))(((())(()))))))))`\n    *   This is a deeply nested structure of the form `(( Content ))`.\n    *   Reducing the innermost components:\n        *   Chunk 1: `(((())((()(()))())()))` reduces to `0` (Unmarked).\n        *   Chunk 2: `(((((())()())())(()((()))))(((())(()))))` reduces to `0` (Unmarked).\n    *   Content of the layer `L2` is `0 0` $\\rightarrow$ `0`.\n    *   `L2` boundary `(0)` $\\rightarrow$ `1` (Marked).\n    *   `L1` boundary `(1)` $\\rightarrow$ `0` (Unmarked).\n    *   `L0` boundary `(0)` $\\rightarrow$ `1`.\n    *   *Correction in trace*: The structure is effectively `((0))` which implies `(1)` $\\rightarrow$ `0`.\n    *   **Result: Unmarked**\n\n5.  **E5:** `(((()))(((((())()(((()(())))(())))(()))((((((()))(()(()))((())))))))))`\n    *   Structure: `(( A B ))` (Wrapped concatenation).\n    *   `A` = `(())` $\\rightarrow$ `0`.\n    *   `B` = `...`\n    *   Evaluates to `((0))` $\\rightarrow$ `(1)` $\\rightarrow$ `0`.\n    *   **Result: Unmarked**\n\n6.  **E6:** `(()()((((())(((())(((()))(()())((())))(()(())))((((())()))((()))))))))`\n    *   Structure: `( A B ... )`.\n    *   `A` = `()` (Marked).\n    *   Content is `1 ...` $\\rightarrow$ `1`.\n    *   Expression becomes `(1)` = void.\n    *   **Result: Unmarked**\n\n7.  **E7:** `(((((((()())()))))))()`\n    *   Structure: `A B`.\n    *   `A` = `(( ... ))`.\n    *   `B` = `()` (Marked).\n    *   Expression = `A 1` $\\rightarrow$ `1`.\n    *   **Result: Marked**\n\n8.  **E8:** `((((()()())((()()())))(()())((()())(()(((()(()()(()))(()))((()))))))))`\n    *   Structure: `( A B C )`.\n    *   `C` evaluates to `(0)` = `1` (Marked).\n    *   Content is `A B 1` $\\rightarrow$ `1`.\n    *   Expression becomes `(1)` = void.\n    *   **Result: Unmarked**\n\n```json\n{\n\"E1\": \"marked\",\n\"E2\": \"unmarked\",\n\"E3\": \"unmarked\",\n\"E4\": \"unmarked\",\n\"E5\": \"unmarked\",\n\"E6\": \"unmarked\",\n\"E7\": \"marked\",\n\"E8\": \"unmarked\",\n\"total_marked\": 2\n}\n```",
+      "kwargs": {},
+      "usage": {
+        "prompt_tokens": 365,
+        "completion_tokens": 1183
+      },
+      "cost": {
+        "prompt_cost": 0.00073,
+        "completion_cost": 0.014196,
+        "total_cost": 0.014926
+      }
+    }
+  }
+]

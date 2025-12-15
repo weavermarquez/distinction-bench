@@ -1,4 +1,34 @@
 #+title: Distinction Benchmark
 
-This repository contains the Distinction Benchmark.
+This repository contains the Distinction Benchmark and the Laws of Form benchmark toolkit for evaluating LLM reasoning.
+
+** Installation
+#+begin_src bash
+uv sync
+#+end_src
+
+** Usage
+#+begin_src python
+from lofbench import simplify_string, canonical_string, generate_form_string
+
+# Simplify a form
+result, steps = simplify_string("(()())")
+print(result)  # "void"
+
+# Generate random forms
+form = generate_form_string(min_depth=2, max_depth=4)
+print(form)  # e.g. "((())(()))"
+
+# Get canonical result
+print(canonical_string("()()"))  # "()"
+#+end_src
+
+** Laws of Form
+
+Spencer-Brown's Laws of Form defines a minimal calculus with two axioms:
+
+- *I1 (Calling)*: =()() → ()= — Adjacent marks condense to one
+- *I2 (Crossing)*: =(()) → void= — Nested mark cancels to void (aka, not represented)
+
+Every expression reduces to either =()= (marked) or =void= (unmarked).
 
