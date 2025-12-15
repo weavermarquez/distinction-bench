@@ -33,39 +33,45 @@ class TestExtractSingleAnswer:
 class TestExtractCompositeAnswer:
     """Test composite answer extraction (JSON format)."""
 
-    def test_extract_json_fenced(self):
+    def test_extract_json_fenced_old_format(self):
+        """Test backward compatibility with old flat format."""
         response = """Here are my answers:
 ```json
-{"E1": "marked", "E2": "unmarked", "E3": "marked", "total_marked": 2}
+{"E1": "marked", "E2": "unmarked", "E3": "marked"}
 ```
 """
         result = extract_composite_answer(response, 3)
-        assert result["items"] == ["marked", "unmarked", "marked"]
-        assert result["total_marked"] == 2
+        assert result["results"] == ["marked", "unmarked", "marked"]
+        assert result["canonicals"] == ["", "", ""]
+
+    def test_extract_json_new_format(self):
+        """Test new format with canonical and result."""
+        response = """
+```json
+{"E1": {"canonical": "(())", "result": "unmarked"}, "E2": {"canonical": "()()", "result": "marked"}}
+```
+"""
+        result = extract_composite_answer(response, 2)
+        assert result["results"] == ["unmarked", "marked"]
+        assert result["canonicals"] == ["(())", "()()"]
 
     def test_extract_json_bare(self):
-        response = '{"E1": "marked", "E2": "unmarked", "total_marked": 1}'
+        response = '{"E1": "marked", "E2": "unmarked"}'
         result = extract_composite_answer(response, 2)
-        assert result["items"] == ["marked", "unmarked"]
-        assert result["total_marked"] == 1
-
-    def test_extract_fallback_total(self):
-        response = "I think total_marked: 5"
-        result = extract_composite_answer(response, 8)
-        assert result["items"] == ["unknown"] * 8
-        assert result["total_marked"] == 5
+        assert result["results"] == ["marked", "unmarked"]
 
     def test_extract_empty(self):
-        result = extract_composite_answer("", 8)
-        assert result["items"] == ["unknown"] * 8
-        assert result["total_marked"] == -1
-
-    def test_extract_invalid_total(self):
-        response = '{"E1": "marked", "total_marked": 100}'
-        result = extract_composite_answer(response, 8)
-        assert result["total_marked"] == -1
+        result = extract_composite_answer("", 4)
+        assert result["results"] == ["unknown"] * 4
+        assert result["canonicals"] == [""] * 4
 
     def test_extract_unparseable(self):
-        result = extract_composite_answer("no json here", 8)
-        assert result["items"] == ["unknown"] * 8
-        assert result["total_marked"] == -1
+        result = extract_composite_answer("no json here", 4)
+        assert result["results"] == ["unknown"] * 4
+        assert result["canonicals"] == [""] * 4
+
+    def test_extract_mixed_formats(self):
+        """Test handling of result values like void, nothing, ()."""
+        response = '{"E1": {"canonical": "()", "result": "void"}, "E2": {"canonical": "", "result": "()"}}'
+        result = extract_composite_answer(response, 2)
+        assert result["results"] == ["unmarked", "marked"]

@@ -46,7 +46,7 @@ def extract_single_answer(response: str) -> Literal["marked", "unmarked", "unkno
     return "unknown"
 
 
-def extract_composite_answer(response: str, n: int) -> dict[str, list[str] | int]:
+def extract_composite_answer(response: str, n: int) -> dict[str, list[str]]:
     """
     Extract composite answer from LLM response.
 
@@ -56,36 +56,67 @@ def extract_composite_answer(response: str, n: int) -> dict[str, list[str] | int
 
     Returns:
         Dictionary with:
-          - "items": list of "marked"/"unmarked"/"unknown" for each item
+          - "results": list of "marked"/"unmarked"/"unknown" for each item
+          - "canonicals": list of canonical form strings (or "" if not provided)
     """
-    empty: dict[str, list[str] | int] = {"items": ["unknown"] * n}
+    empty: dict[str, list[str]] = {
+        "results": ["unknown"] * n,
+        "canonicals": [""] * n,
+    }
     if not response:
         return empty
 
     # Try to find JSON in the response
-    # Look for ```json ... ``` or just { ... }
-    json_match = re.search(r"```json\s*(\{.*?\})\s*```", response, re.DOTALL)
+    # Look for ```json ... ``` first (greedy match for nested objects)
+    json_match = re.search(r"```json\s*(\{.*\})\s*```", response, re.DOTALL)
     if not json_match:
-        json_match = re.search(r'(\{[^{}]*"E1"[^{}]*\})', response, re.DOTALL)
+        # Try to find a JSON object containing "E1" (greedy to handle nested objects)
+        json_match = re.search(r'(\{"E1".*\})', response, re.DOTALL)
 
     if json_match:
         try:
             data = json.loads(json_match.group(1))
-            items: list[str] = []
+            results: list[str] = []
+            canonicals: list[str] = []
+
             for i in range(1, n + 1):
                 key = f"E{i}"
                 val = data.get(key, "unknown")
-                if isinstance(val, str):
+
+                # Handle new format: {"canonical": "...", "result": "..."}
+                if isinstance(val, dict):
+                    # Extract result
+                    result = val.get("result", "unknown")
+                    if isinstance(result, str):
+                        result = result.lower()
+                        if result in ("marked", "()"):
+                            results.append("marked")
+                        elif result in ("unmarked", "void", "nothing"):
+                            results.append("unmarked")
+                        else:
+                            results.append("unknown")
+                    else:
+                        results.append("unknown")
+
+                    # Extract canonical
+                    canonical = val.get("canonical", "")
+                    canonicals.append(str(canonical) if canonical else "")
+
+                # Handle old format: "marked" or "unmarked" directly
+                elif isinstance(val, str):
                     val = val.lower()
                     if val in ("marked", "()"):
-                        items.append("marked")
+                        results.append("marked")
                     elif val in ("unmarked", "void", "nothing"):
-                        items.append("unmarked")
+                        results.append("unmarked")
                     else:
-                        items.append("unknown")
+                        results.append("unknown")
+                    canonicals.append("")
                 else:
-                    items.append("unknown")
-            return {"items": items}
+                    results.append("unknown")
+                    canonicals.append("")
+
+            return {"results": results, "canonicals": canonicals}
         except (json.JSONDecodeError, TypeError):
             pass
 
@@ -121,14 +152,21 @@ def lof_single_scorer() -> Scorer:
     return score
 
 
-@scorer(metrics={"all_correct": [mean()], "per_item_accuracy": [mean()]})
+@scorer(
+    metrics={
+        "all_correct": [mean()],
+        "per_item_accuracy": [mean()],
+        "structure_accuracy": [mean()],
+    }
+)
 def lof_composite_scorer() -> Scorer:
     """
     Scorer for composite form evaluation tasks.
 
-    Computes two metrics:
-    - all_correct: 1.0 if all items correct, 0.0 otherwise (primary)
-    - per_item_accuracy: fraction of items correctly evaluated (diagnostic)
+    Computes three metrics:
+    - all_correct: 1.0 if all results correct, 0.0 otherwise (primary)
+    - per_item_accuracy: fraction of results correctly evaluated (diagnostic)
+    - structure_accuracy: fraction of canonical forms correct (diagnostic)
 
     Designed for use with epochs=Epochs(3, "at_least_2") at task level.
     Human baseline expectation: 98-100% all_correct.
@@ -140,26 +178,43 @@ def lof_composite_scorer() -> Scorer:
 
         # Get targets from metadata
         targets = state.metadata.get("targets", [])
+        original_expressions = state.metadata.get("original_expressions", [])
         n = len(targets)
 
         # Extract composite answer
         extracted = extract_composite_answer(response, n)
-        items = extracted["items"]
+        results = extracted["results"]
+        canonicals = extracted["canonicals"]
 
-        # Compute per-item accuracy
-        correct_items = sum(1 for i, item in enumerate(items) if item == targets[i])
-        per_item_accuracy = correct_items / n if n > 0 else 0.0
+        # Compute per-item result accuracy
+        correct_results = sum(
+            1 for i, result in enumerate(results) if result == targets[i]
+        )
+        per_item_accuracy = correct_results / n if n > 0 else 0.0
 
-        # Compute all_correct
-        all_correct = 1.0 if correct_items == n else 0.0
+        # Compute all_correct (results)
+        all_correct = 1.0 if correct_results == n else 0.0
+
+        # Compute structure_accuracy (canonical forms)
+        correct_canonicals = sum(
+            1
+            for i, canonical in enumerate(canonicals)
+            if canonical and i < len(original_expressions) and canonical == original_expressions[i]
+        )
+        structure_accuracy = correct_canonicals / n if n > 0 else 0.0
 
         # Create explanation
-        explanation = f"Items correct: {correct_items}/{n}, All correct: {all_correct == 1.0}"
+        explanation = (
+            f"Results correct: {correct_results}/{n}, "
+            f"Canonicals correct: {correct_canonicals}/{n}, "
+            f"All correct: {all_correct == 1.0}"
+        )
 
         return Score(
             value={
                 "all_correct": all_correct,
                 "per_item_accuracy": per_item_accuracy,
+                "structure_accuracy": structure_accuracy,
             },
             answer=str(extracted),
             explanation=explanation,
