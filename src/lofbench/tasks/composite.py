@@ -11,7 +11,7 @@ from lofbench.datasets import create_composite_dataset
 from lofbench.renderers import get_renderer
 from lofbench.scorers import lof_composite_scorer
 
-from .prompts import COMPOSITE_SYSTEM_PROMPT, COMPOSITE_USER_TEMPLATE
+from lofbench.tasks.prompts import COMPOSITE_SYSTEM_PROMPT, COMPOSITE_USER_TEMPLATE
 
 
 @task

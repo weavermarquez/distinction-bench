@@ -11,7 +11,7 @@ from lofbench.datasets import create_single_dataset
 from lofbench.renderers import get_renderer
 from lofbench.scorers import lof_single_scorer
 
-from .prompts import SINGLE_SYSTEM_PROMPT, SINGLE_USER_TEMPLATE
+from lofbench.tasks.prompts import SINGLE_SYSTEM_PROMPT, SINGLE_USER_TEMPLATE
 
 
 @task

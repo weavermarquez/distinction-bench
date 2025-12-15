@@ -47,9 +47,10 @@ def create_single_dataset(
         samples.append(
             Sample(
                 id=case["id"],
-                input=rendered.rendered,
+                input="Evaluate the expression",  # Placeholder, template provides real prompt
                 target=case["target"],  # "marked" or "unmarked"
                 metadata={
+                    "expression": rendered.rendered,  # For template substitution
                     "difficulty": case["difficulty"],
                     "depth": case["depth"],
                     "steps": case["steps"],
@@ -107,12 +108,13 @@ def create_composite_dataset(
         samples.append(
             Sample(
                 id=case["id"],
-                input=formatted_input,
+                input="Evaluate the expressions",  # Placeholder, template provides real prompt
                 target=str(case["count"]),  # Count of marked expressions
                 metadata={
+                    "expressions": formatted_input,  # For template substitution
                     "difficulty": case["difficulty"],
                     "group_size": case["group_size"],
-                    "expressions": case["expressions"],
+                    "original_expressions": case["expressions"],
                     "targets": case["targets"],  # Per-expression targets
                     "count": case["count"],
                     "renderer": renderer.name,

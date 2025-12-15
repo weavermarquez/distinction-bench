@@ -23,7 +23,7 @@ def extract_single_answer(response: str) -> Literal["marked", "unmarked", "unkno
         return "unknown"
 
     # Try XML tag pattern first
-    pattern = r"<answer>\s*(marked|unmarked|\(\)|void)\s*</answer>"
+    pattern = r"<answer>\s*(marked|unmarked|\(\)|void|nothing)\s*</answer>"
     match = re.search(pattern, response, re.IGNORECASE)
     if match:
         ans = match.group(1).lower()
@@ -32,11 +32,11 @@ def extract_single_answer(response: str) -> Literal["marked", "unmarked", "unkno
     # Fallback: find last occurrence of "marked"/"()" vs "unmarked"/"void"
     response_lower = response.lower()
     mark_pos = max(response_lower.rfind("()"), response_lower.rfind("marked"))
-    void_pos = max(response_lower.rfind("void"), response_lower.rfind("unmarked"))
+    unmark_pos = max(response_lower.rfind("nothing"), response_lower.rfind("unmarked"))
 
-    if mark_pos > void_pos:
+    if mark_pos > unmark_pos:
         return "marked"
-    elif void_pos > mark_pos:
+    elif unmark_pos > mark_pos:
         return "unmarked"
     return "unknown"
 
@@ -75,7 +75,7 @@ def extract_composite_answer(response: str, n: int) -> dict[str, list[str] | int
                     val = val.lower()
                     if val in ("marked", "()"):
                         items.append("marked")
-                    elif val in ("unmarked", "void"):
+                    elif val in ("unmarked", "void", "nothing"):
                         items.append("unmarked")
                     else:
                         items.append("unknown")
