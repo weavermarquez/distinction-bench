@@ -226,35 +226,43 @@ def generate_form_string(
 # Test Case Generation
 # =============================================================================
 
+# Canonical difficulty configurations: (name, min_depth, max_depth, max_width, max_marks)
+# These are invariant across the entire system
+DIFFICULTY_CONFIGS = (
+    ("1. easy", 2, 3, 2, 15),
+    ("2. medium", 3, 4, 3, 20),
+    ("3. hard", 4, 5, 6, 25),
+    ("4. lunatic", 3, 8, 9, 30),
+    ("5. extra", 4, 9, 3, 35),
+)
+
 
 def generate_test_cases(n: int = 4000, seed: int = 20251211) -> list[dict]:
     """Generate n test cases with varying difficulty.
 
-    Difficulty levels:
-    - easy: depth 2-3, width 2, max 15 marks
-    - medium: depth 3-4, width 3, max 20 marks
-    - hard: depth 4-5, width 6, max 25 marks
-    - lunatic: depth 3-8, width 9, max 30 marks
-    - extra: depth 4-9, width 3, max 35 marks
+    Uses DIFFICULTY_CONFIGS for consistent difficulty definitions.
+    Distribution is uniform across all 5 difficulty levels. When n
+    is not divisible by 5, extra cases go to earlier difficulties.
 
     Returns:
         List of dicts with keys: id, input, target, difficulty, depth, steps
     """
     rng = random.Random(seed)
     cases = []
-    one_fifth = math.floor(n / 5)
 
-    # Distribution with (difficulty, min_depth, max_depth, max_width, max_marks)
-    difficulties = (
-        [("1. easy", 2, 3, 2, 15)] * one_fifth
-        + [("2. medium", 3, 4, 3, 20)] * one_fifth
-        + [("3. hard", 4, 5, 6, 25)] * one_fifth
-        + [("4. lunatic", 3, 8, 9, 30)] * one_fifth
-        + [("5. extra", 4, 9, 3, 35)] * one_fifth
-    )
+    # Distribute n uniformly across difficulties
+    base_per_diff = n // len(DIFFICULTY_CONFIGS)
+    remainder = n % len(DIFFICULTY_CONFIGS)
+
+    # Build list of difficulty assignments (uniform distribution)
+    difficulties = []
+    for i, config in enumerate(DIFFICULTY_CONFIGS):
+        count = base_per_diff + (1 if i < remainder else 0)
+        difficulties.extend([config] * count)
+
     rng.shuffle(difficulties)
 
-    for i, (diff, min_d, max_d, max_w, max_m) in enumerate(difficulties[:n]):
+    for i, (diff, min_d, max_d, max_w, max_m) in enumerate(difficulties):
         input_str = generate_form_string(
             min_depth=min_d, max_depth=max_d, max_width=max_w, max_marks=max_m, rng=rng
         )
@@ -290,6 +298,9 @@ def generate_composite_test_cases(
     Random guessing drops from 50% to 1/(N+1).
     For N=8: random guess accuracy = 1/9 ≈ 11%
 
+    Distribution is uniform across all 5 difficulty levels. When n_groups
+    is not divisible by 5, extra cases go to earlier difficulties.
+
     Args:
         n_groups: Number of composite test cases
         group_size: Problems per group
@@ -301,19 +312,20 @@ def generate_composite_test_cases(
     rng = random.Random(seed)
     cases = []
 
-    # Difficulty configs: (name, min_depth, max_depth, max_width, max_marks)
-    difficulties = [
-        ("1. easy", 2, 3, 2, 15),
-        ("2. medium", 3, 4, 3, 20),
-        ("3. hard", 4, 5, 6, 25),
-        ("4. lunatic", 3, 8, 9, 30),
-        ("5. extra", 4, 9, 3, 35),
-    ]
+    # Distribute n_groups uniformly across difficulties
+    base_per_diff = n_groups // len(DIFFICULTY_CONFIGS)
+    remainder = n_groups % len(DIFFICULTY_CONFIGS)
 
-    for i in range(n_groups):
-        # Rotate through difficulties
-        diff_name, min_d, max_d, max_w, max_m = difficulties[i % len(difficulties)]
+    # Build list of difficulty assignments (uniform distribution)
+    difficulty_assignments = []
+    for i, config in enumerate(DIFFICULTY_CONFIGS):
+        count = base_per_diff + (1 if i < remainder else 0)
+        difficulty_assignments.extend([config] * count)
 
+    # Shuffle to mix difficulties
+    rng.shuffle(difficulty_assignments)
+
+    for i, (diff_name, min_d, max_d, max_w, max_m) in enumerate(difficulty_assignments):
         expressions = []
         targets = []
 

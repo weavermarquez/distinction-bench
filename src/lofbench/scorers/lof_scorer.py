@@ -29,10 +29,15 @@ def extract_single_answer(response: str) -> Literal["marked", "unmarked", "unkno
         ans = match.group(1).lower()
         return "marked" if ans in ("marked", "()") else "unmarked"
 
-    # Fallback: find last occurrence of "marked"/"()" vs "unmarked"/"void"
+    # Fallback: find last occurrence of "marked" vs "unmarked"
+    # Use regex to find whole words only (avoid "marked" matching inside "unmarked")
     response_lower = response.lower()
-    mark_pos = response_lower.rfind("marked")
-    unmark_pos = response_lower.rfind("unmarked")
+
+    mark_matches = list(re.finditer(r"\bmarked\b", response_lower))
+    unmark_matches = list(re.finditer(r"\bunmarked\b", response_lower))
+
+    mark_pos = mark_matches[-1].start() if mark_matches else -1
+    unmark_pos = unmark_matches[-1].start() if unmark_matches else -1
 
     if mark_pos > unmark_pos:
         return "marked"

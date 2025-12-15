@@ -1,6 +1,7 @@
 """lofbench - Laws of Form benchmark toolkit."""
 
 from lofbench.core import (
+    DIFFICULTY_CONFIGS,
     canonical_string,
     evaluate,
     form_depth,
@@ -22,6 +23,7 @@ from lofbench.tasks import composite_lof_task, single_lof_task
 
 __all__ = [
     # Core
+    "DIFFICULTY_CONFIGS",
     "form_to_string",
     "string_to_form",
     "form_depth",

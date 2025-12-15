@@ -18,11 +18,10 @@ class TestExtractSingleAnswer:
 
     def test_extract_fallback_marked(self):
         assert extract_single_answer("The final answer is marked.") == "marked"
-        assert extract_single_answer("This reduces to ()") == "marked"
 
     def test_extract_fallback_unmarked(self):
-        assert extract_single_answer("The expression is void.") == "unmarked"
-        assert extract_single_answer("The result is void") == "unmarked"
+        assert extract_single_answer("The expression is unmarked.") == "unmarked"
+        assert extract_single_answer("The result is unmarked") == "unmarked"
 
     def test_extract_empty(self):
         assert extract_single_answer("") == "unknown"

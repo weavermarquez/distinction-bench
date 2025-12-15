@@ -7,6 +7,7 @@ from typing import Any
 from inspect_ai import Task, task
 from inspect_ai.solver import chain_of_thought, generate, prompt_template, system_message
 
+from lofbench.core import DIFFICULTY_CONFIGS
 from lofbench.datasets import create_composite_dataset
 from lofbench.renderers import get_renderer
 from lofbench.scorers import lof_composite_scorer
@@ -52,6 +53,14 @@ def composite_lof_task(
         render_seed=render_seed,
     )
 
+    # Calculate difficulty distribution for metadata
+    base_per_diff = n_groups // len(DIFFICULTY_CONFIGS)
+    remainder = n_groups % len(DIFFICULTY_CONFIGS)
+    difficulty_counts = {
+        config[0]: base_per_diff + (1 if i < remainder else 0)
+        for i, config in enumerate(DIFFICULTY_CONFIGS)
+    }
+
     return Task(
         dataset=dataset,
         solver=[
@@ -61,4 +70,21 @@ def composite_lof_task(
             generate(),
         ],
         scorer=lof_composite_scorer(),
+        metadata={
+            "n_groups": n_groups,
+            "group_size": group_size,
+            "seed": seed,
+            "renderer": renderer,
+            "render_seed": render_seed,
+            "difficulty_distribution": difficulty_counts,
+            "difficulty_configs": {
+                config[0]: {
+                    "min_depth": config[1],
+                    "max_depth": config[2],
+                    "max_width": config[3],
+                    "max_marks": config[4],
+                }
+                for config in DIFFICULTY_CONFIGS
+            },
+        },
     )
