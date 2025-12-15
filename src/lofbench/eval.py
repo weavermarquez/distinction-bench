@@ -305,16 +305,14 @@ class CompositeTask:
 # Live Evaluation (async, for quick_test)
 # =============================================================================
 
-async def eval_openai_live(prompt: str, model: str) -> tuple[str, dict]:
+async def eval_openai_live(client, prompt: str, model: str) -> tuple[str, dict]:
     """Live OpenAI API call. Returns (response_text, metadata)."""
-    from openai import AsyncOpenAI
     kwargs = {"temperature": 1, "reasoning_effort": "high"}
-    async with AsyncOpenAI() as client:
-        response = await client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            **kwargs
-        )
+    response = await client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        **kwargs
+    )
     text = response.choices[0].message.content
     usage = {
         "prompt_tokens": response.usage.prompt_tokens,
@@ -323,11 +321,9 @@ async def eval_openai_live(prompt: str, model: str) -> tuple[str, dict]:
     return text, {"kwargs": kwargs, "usage": usage}
 
 
-async def eval_anthropic_live(prompt: str, model: str) -> tuple[str, dict]:
+async def eval_anthropic_live(client, prompt: str, model: str) -> tuple[str, dict]:
     """Live Anthropic API call. Returns (response_text, metadata)."""
-    from anthropic import AsyncAnthropic
     kwargs = {"max_tokens": 60000}
-    client = AsyncAnthropic()
     async with client.messages.stream(
         model=model,
         messages=[{"role": "user", "content": prompt}],
@@ -342,12 +338,10 @@ async def eval_anthropic_live(prompt: str, model: str) -> tuple[str, dict]:
     return text, {"kwargs": kwargs, "usage": usage}
 
 
-async def eval_google_live(prompt: str, model: str) -> tuple[str, dict]:
+async def eval_google_live(client, prompt: str, model: str) -> tuple[str, dict]:
     """Live Google API call. Returns (response_text, metadata)."""
-    from google import genai
     kwargs = {}
-    async with genai.Client().aio as client:
-        response = await client.models.generate_content(model=model, contents=prompt)
+    response = await client.aio.models.generate_content(model=model, contents=prompt)
     text = response.text
     usage = {
         "prompt_tokens": response.usage_metadata.prompt_token_count,
@@ -555,11 +549,11 @@ def quick_test(
 
     print(f"Running {task_type.__name__} on {len(cases)} cases (live)...")
 
-    async def _run_single(case, provider, model, fn, prompt):
+    async def _run_single(case, provider, model, client, fn, prompt):
         """Run a single eval with timestamps."""
         start = datetime.now().isoformat()
         try:
-            response, api_meta = await fn(prompt, model)
+            response, api_meta = await fn(client, prompt, model)
             end = datetime.now().isoformat()
             answer = task_type.extract(response, case)
             metadata = {
@@ -578,18 +572,49 @@ def quick_test(
         return task_type.make_result(case, provider, model, response, answer, metadata)
 
     async def _run():
-        tasks = []
-        for case in cases:
-            prompt = task_type.format_prompt(case)
-            for provider in providers:
-                if provider not in LIVE_EVAL_FNS:
-                    continue
-                model = models.get(provider)
-                if not model:
-                    continue
-                fn = LIVE_EVAL_FNS[provider]
-                tasks.append(_run_single(case, provider, model, fn, prompt))
-        return await asyncio.gather(*tasks)
+        # Create clients and enter async contexts once, then run all tasks concurrently
+        from contextlib import AsyncExitStack
+        clients = {}
+
+        async with AsyncExitStack() as stack:
+            # OpenAI
+            if "openai" in providers and models.get("openai"):
+                try:
+                    from openai import AsyncOpenAI
+                    clients["openai"] = await stack.enter_async_context(AsyncOpenAI())
+                except ImportError:
+                    pass
+
+            # Anthropic (no async context needed for client itself)
+            if "anthropic" in providers and models.get("anthropic"):
+                try:
+                    from anthropic import AsyncAnthropic
+                    clients["anthropic"] = AsyncAnthropic()
+                except ImportError:
+                    pass
+
+            # Google (client.aio.models.generate_content is the async interface)
+            if "google" in providers and models.get("google"):
+                try:
+                    from google import genai
+                    clients["google"] = genai.Client()
+                except ImportError:
+                    pass
+
+            # Build and run all tasks concurrently
+            tasks = []
+            for case in cases:
+                prompt = task_type.format_prompt(case)
+                for provider in providers:
+                    if provider not in LIVE_EVAL_FNS:
+                        continue
+                    model = models.get(provider)
+                    client = clients.get(provider)
+                    if not model or not client:
+                        continue
+                    fn = LIVE_EVAL_FNS[provider]
+                    tasks.append(_run_single(case, provider, model, client, fn, prompt))
+            return await asyncio.gather(*tasks)
 
     results = asyncio.run(_run())
 
