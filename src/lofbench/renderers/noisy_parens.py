@@ -64,15 +64,22 @@ class NoisyParensRenderer(FormRenderer):
             "(())" -> "[{⟩」" or "⟨}]〉"
     """
 
-    def __init__(self, config: NoisyParensConfig | None = None):
+    def __init__(self, config: NoisyParensConfig | None = None, **kwargs):
         """Initialize the noisy parentheses renderer.
 
         Args:
             config: Configuration for bracket substitution. If None,
                    uses default config with all bracket pairs and
                    mismatched=False.
+            **kwargs: Override config values (e.g., mismatched=True).
+                     Useful for CLI usage with inspect eval -T mismatched=true
         """
         self.config = config or NoisyParensConfig()
+
+        # kwargs override config values
+        for key, value in kwargs.items():
+            if hasattr(self.config, key):
+                setattr(self.config, key, value)
 
     @property
     def name(self) -> str:

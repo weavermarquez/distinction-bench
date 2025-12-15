@@ -9,13 +9,14 @@ from __future__ import annotations
 from typing import Any
 
 from .base import FormRenderer, RenderedForm
-from .canonical import CanonicalRenderer
+from .canonical import CanonicalConfig, CanonicalRenderer
 from .noisy_parens import BRACKET_PAIRS, NoisyParensConfig, NoisyParensRenderer
 
 __all__ = [
     "FormRenderer",
     "RenderedForm",
     "CanonicalRenderer",
+    "CanonicalConfig",
     "NoisyParensRenderer",
     "NoisyParensConfig",
     "BRACKET_PAIRS",

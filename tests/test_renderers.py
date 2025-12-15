@@ -47,7 +47,7 @@ class TestCanonicalRenderer:
         assert result.original == "()"
         assert result.rendered == "()"
         assert result.renderer_name == "canonical"
-        assert result.metadata == {}
+        assert result.metadata == {"spacing": False}
 
     def test_render_nested(self):
         renderer = CanonicalRenderer()
@@ -67,6 +67,20 @@ class TestCanonicalRenderer:
         results = renderer.render_batch(forms)
         assert len(results) == 3
         assert all(r.original == r.rendered for r in results)
+
+    def test_render_with_spacing(self):
+        renderer = CanonicalRenderer(spacing=True)
+        rng = random.Random(42)
+        result = renderer.render("(())()", rng)
+        assert result.original == "(())()"
+        assert result.metadata == {"spacing": True}
+        # Spacing may add spaces between tokens
+        assert result.rendered.replace(" ", "") == "(())()"
+
+    def test_spacing_kwargs_override(self):
+        """Test that spacing kwarg works for CLI convenience."""
+        renderer = CanonicalRenderer(spacing=True)
+        assert renderer.config.spacing is True
 
 
 class TestNoisyParensRenderer:
@@ -119,6 +133,17 @@ class TestNoisyParensRenderer:
         result = renderer.render("()", rng)
         # Should only use [ ] or { }
         assert result.rendered in ["[]", "{}"]
+
+    def test_kwargs_override(self):
+        """Test that kwargs override config values (for CLI convenience)."""
+        # Direct kwargs without config
+        renderer = NoisyParensRenderer(mismatched=True)
+        assert renderer.config.mismatched is True
+
+        # kwargs override config values
+        config = NoisyParensConfig(mismatched=False)
+        renderer = NoisyParensRenderer(config=config, mismatched=True)
+        assert renderer.config.mismatched is True
 
 
 class TestBracketPairs:
