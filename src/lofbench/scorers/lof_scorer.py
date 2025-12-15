@@ -56,10 +56,9 @@ def extract_composite_answer(response: str, n: int) -> dict[str, list[str] | int
 
     Returns:
         Dictionary with:
-            - "items": list of "marked"/"unmarked"/"unknown" for each item
-            - "total_marked": int or -1 if unparseable
+          - "items": list of "marked"/"unmarked"/"unknown" for each item
     """
-    empty: dict[str, list[str] | int] = {"items": ["unknown"] * n, "total_marked": -1}
+    empty: dict[str, list[str] | int] = {"items": ["unknown"] * n}
     if not response:
         return empty
 
@@ -86,19 +85,9 @@ def extract_composite_answer(response: str, n: int) -> dict[str, list[str] | int
                         items.append("unknown")
                 else:
                     items.append("unknown")
-            total = data.get("total_marked", -1)
-            if not isinstance(total, int) or total < 0 or total > n:
-                total = -1
-            return {"items": items, "total_marked": total}
+            return {"items": items}
         except (json.JSONDecodeError, TypeError):
             pass
-
-    # Fallback: try to extract total_marked from text
-    match = re.search(r'total_marked["\s:]+(\d+)', response, re.IGNORECASE)
-    if match:
-        total = int(match.group(1))
-        if 0 <= total <= n:
-            return {"items": ["unknown"] * n, "total_marked": total}
 
     return empty
 

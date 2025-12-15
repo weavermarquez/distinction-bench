@@ -111,6 +111,11 @@ if result.stderr:
     print("STDERR:", result.stderr[:500])
 #+end_src
 
+#+RESULTS:
+: 
+: STDERR: error: Failed to spawn: `inspect`
+:   Caused by: No such file or directory (os error 2)
+
 * View Results Interactively
 
 #+begin_src python
@@ -121,6 +126,25 @@ import subprocess
 print("Run this in a terminal:")
 print("  uv run inspect view")
 #+end_src
+
+#+begin_example bash :eval no
+# Claude Opus 4.5
+uv run inspect eval src/lofbench/tasks/composite.py \
+--model anthropic/claude-opus-4-5-20251101 \
+--reasoning-tokens 10000 -T n_groups=500
+- T renderer=noisy_parens
+
+# GPT-5.2
+uv run inspect eval src/lofbench/tasks/single.py \
+--model openai/gpt-5.2 \
+--reasoning-effort high
+
+# Gemini 3.0 Pro
+uv run inspect eval src/lofbench/tasks/single.py \
+--model google/gemini-3.0-pro \
+--reasoning-tokens 10000
+#+end_example
+
 
 * Analyze Results Programmatically
 
@@ -179,6 +203,8 @@ else:
         acc = 100 * d["correct"] / d["total"] if d["total"] > 0 else 0
         print(f"  {diff}: {acc:.1f}% ({d['correct']}/{d['total']})")
 #+end_src
+
+#+RESULTS:
 
 ** Analyze Composite Task Results
 
@@ -316,8 +342,8 @@ from lofbench import generate_test_cases, generate_composite_test_cases
 from collections import Counter
 
 # Generate cases
-single_cases = generate_test_cases(n=100, seed=2025)
-composite_cases = generate_composite_test_cases(n_groups=50, group_size=8, seed=2025)
+single_cases = generate_test_cases(n=4000, seed=2025)
+composite_cases = generate_composite_test_cases(n_groups=500, group_size=8, seed=2025)
 
 print(f"Generated {len(single_cases)} single cases")
 print(f"Generated {len(composite_cases)} composite cases")
@@ -333,7 +359,7 @@ for diff in sorted(by_diff.keys()):
 
 print("\nBy Target:")
 for target, count in by_target.items():
-    print(f"  {target}: {count} ({100*count/len(single_cases):.1f}%)")
+    print(f"  {target:8}: {count} ({100*count/len(single_cases):.1f}%)")
 
 # Composite case stats
 print("\n=== Composite Case Statistics ===")
@@ -342,6 +368,38 @@ print("\nTarget Count Distribution:")
 for k in sorted(count_dist.keys()):
     print(f"  {k} marked: {count_dist[k]} groups")
 #+end_src
+
+#+RESULTS:
+#+begin_example
+Generated 4000 single cases
+Generated 500 composite cases
+
+=== Single Case Statistics ===
+
+By Difficulty:
+  1. easy: 800
+  2. medium: 800
+  3. hard: 800
+  4. lunatic: 800
+  5. extra: 800
+
+By Target:
+  unmarked: 1876 (46.9%)
+  marked  : 2124 (53.1%)
+
+=== Composite Case Statistics ===
+
+Target Count Distribution:
+  0 marked: 3 groups
+  1 marked: 11 groups
+  2 marked: 35 groups
+  3 marked: 103 groups
+  4 marked: 129 groups
+  5 marked: 128 groups
+  6 marked: 64 groups
+  7 marked: 23 groups
+  8 marked: 4 groups
+#+end_example
 
 ** Visualize Expression Complexity
 
@@ -362,7 +420,7 @@ max_count = max(depth_counts.values())
 for depth in sorted(depth_counts.keys()):
     count = depth_counts[depth]
     bar = "█" * int(40 * count / max_count)
-    print(f"  depth {depth}: {bar} {count}")
+    print(f"  depth {depth:2}: {bar} {count}")
 
 # Length distribution
 lengths = [len(c["input"]) for c in cases]
@@ -371,6 +429,23 @@ print(f"  Min: {min(lengths)}")
 print(f"  Max: {max(lengths)}")
 print(f"  Mean: {sum(lengths)/len(lengths):.1f}")
 #+end_src
+
+#+RESULTS:
+#+begin_example
+=== Expression Depth Distribution ===
+  depth  2: ████ 2
+  depth  3: ██████████████ 7
+  depth  4: ████████████████████████ 12
+  depth  5: ██████████████████████████████████████ 19
+  depth  6: ████████████████████████████████████████ 20
+  depth  9: ████████████████████████████████████████ 20
+  depth 10: ████████████████████████████████████████ 20
+
+=== Expression Length ===
+  Min: 6
+  Max: 70
+  Mean: 45.3
+#+end_example
 
 * Renderer Examples
 
