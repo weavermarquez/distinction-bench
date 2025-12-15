@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from inspect_ai import Task, task
+from inspect_ai import Epochs, Task, task
+from inspect_ai.model import GenerateConfig
 from inspect_ai.solver import chain_of_thought, generate, prompt_template, system_message
 
 from lofbench.core import DIFFICULTY_CONFIGS
@@ -18,7 +19,7 @@ from lofbench.tasks.prompts import COMPOSITE_SYSTEM_PROMPT, COMPOSITE_USER_TEMPL
 @task
 def composite_lof_task(
     n_groups: int = 100,
-    group_size: int = 8,
+    group_size: int = 4,
     seed: int = 2025,
     renderer: str = "canonical",
     render_seed: int | None = None,
@@ -27,10 +28,11 @@ def composite_lof_task(
     """Composite LoF expression evaluation task.
 
     Evaluates model ability to reduce multiple Laws of Form expressions
-    and count how many are marked. This tests systematic reasoning
-    across a batch of problems.
+    and count how many are marked. Tests systematic reasoning and consistency.
 
-    Random baseline for group_size=8: 0.04% (1/2**8) 
+    Uses 3 epochs with at_least_2 reducer: must get all_correct on 2+ attempts.
+    Random baseline for group_size=4 with at_least_2(3): ~1.1%
+    Human baseline expectation: 98-100%
 
     Args:
         n_groups: Number of test groups
@@ -61,6 +63,10 @@ def composite_lof_task(
         for i, config in enumerate(DIFFICULTY_CONFIGS)
     }
 
+    # Model-specific reasoning flags should be passed via CLI:
+    #   Claude Opus 4.5: --reasoning-tokens 10000
+    #   GPT-5.2: --reasoning-effort high
+    #   Gemini 3.0: --reasoning-tokens 10000
     return Task(
         dataset=dataset,
         solver=[
@@ -70,6 +76,11 @@ def composite_lof_task(
             generate(),
         ],
         scorer=lof_composite_scorer(),
+        epochs=Epochs(3, "at_least_2"),
+        config=GenerateConfig(
+            temperature=1,
+            max_tokens=64000,  # Even playing field; models cap to their own limits
+        ),
         metadata={
             "n_groups": n_groups,
             "group_size": group_size,

@@ -132,15 +132,17 @@ def lof_single_scorer() -> Scorer:
     return score
 
 
-@scorer(metrics={"per_item_accuracy": [mean()], "all_correct": [mean()], "count_match": [mean()]})
+@scorer(metrics={"all_correct": [mean()], "per_item_accuracy": [mean()]})
 def lof_composite_scorer() -> Scorer:
     """
     Scorer for composite form evaluation tasks.
 
-    Computes three metrics:
-    - per_item_accuracy: fraction of items correctly evaluated
-    - all_correct: 1.0 if all items correct, 0.0 otherwise
-    - count_match: 1.0 if total_marked count matches, 0.0 otherwise
+    Computes two metrics:
+    - all_correct: 1.0 if all items correct, 0.0 otherwise (primary)
+    - per_item_accuracy: fraction of items correctly evaluated (diagnostic)
+
+    Designed for use with epochs=Epochs(3, "at_least_2") at task level.
+    Human baseline expectation: 98-100% all_correct.
     """
 
     async def score(state, target: Target) -> Score:
@@ -149,13 +151,11 @@ def lof_composite_scorer() -> Scorer:
 
         # Get targets from metadata
         targets = state.metadata.get("targets", [])
-        expected_count = state.metadata.get("count", -1)
         n = len(targets)
 
         # Extract composite answer
         extracted = extract_composite_answer(response, n)
         items = extracted["items"]
-        total_marked = extracted["total_marked"]
 
         # Compute per-item accuracy
         correct_items = sum(1 for i, item in enumerate(items) if item == targets[i])
@@ -164,22 +164,13 @@ def lof_composite_scorer() -> Scorer:
         # Compute all_correct
         all_correct = 1.0 if correct_items == n else 0.0
 
-        # Compute count_match
-        count_match = 1.0 if total_marked == expected_count else 0.0
-
         # Create explanation
-        explanation = (
-            f"Items correct: {correct_items}/{n}, "
-            f"All correct: {all_correct == 1.0}, "
-            f"Count match: {count_match == 1.0} "
-            f"(expected: {expected_count}, got: {total_marked})"
-        )
+        explanation = f"Items correct: {correct_items}/{n}, All correct: {all_correct == 1.0}"
 
         return Score(
             value={
-                "per_item_accuracy": per_item_accuracy,
                 "all_correct": all_correct,
-                "count_match": count_match,
+                "per_item_accuracy": per_item_accuracy,
             },
             answer=str(extracted),
             explanation=explanation,

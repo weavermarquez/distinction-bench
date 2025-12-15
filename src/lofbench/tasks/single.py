@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from inspect_ai import Task, task
+from inspect_ai.model import GenerateConfig
 from inspect_ai.solver import chain_of_thought, generate, prompt_template, system_message
 
 from lofbench.core import DIFFICULTY_CONFIGS
@@ -55,6 +56,10 @@ def single_lof_task(
         for i, config in enumerate(DIFFICULTY_CONFIGS)
     }
 
+    # Model-specific reasoning flags should be passed via CLI:
+    #   Claude Opus 4.5: --reasoning-tokens 10000
+    #   GPT-5.2: --reasoning-effort high
+    #   Gemini 3.0: --reasoning-tokens 10000
     return Task(
         dataset=dataset,
         solver=[
@@ -64,6 +69,10 @@ def single_lof_task(
             generate(),
         ],
         scorer=lof_single_scorer(),
+        config=GenerateConfig(
+            temperature=1,
+            max_tokens=64000,  # Opus max; other models will cap to their limits
+        ),
         metadata={
             "n": n,
             "seed": seed,
