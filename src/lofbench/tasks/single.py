@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from inspect_ai import Task, task
 from inspect_ai.model import GenerateConfig
 from inspect_ai.solver import chain_of_thought, generate, prompt_template, system_message
@@ -12,7 +10,6 @@ from lofbench.core import DIFFICULTY_CONFIGS
 from lofbench.datasets import create_single_dataset
 from lofbench.renderers import get_renderer
 from lofbench.scorers import lof_single_scorer
-
 from lofbench.tasks.prompts import SINGLE_SYSTEM_PROMPT, SINGLE_USER_TEMPLATE
 
 
@@ -22,7 +19,7 @@ def single_lof_task(
     seed: int = 2025,
     renderer: str = "canonical",
     render_seed: int | None = None,
-    **renderer_kwargs: Any,
+    renderer_config: dict | None = None,
 ) -> Task:
     """Single LoF expression evaluation task.
 
@@ -34,12 +31,12 @@ def single_lof_task(
         seed: Seed for test case generation
         renderer: Renderer name (canonical, noisy_parens, etc.)
         render_seed: Seed for reproducible rendering
-        **renderer_kwargs: Additional renderer configuration
+        renderer_config: Dict of renderer options (e.g., {"mismatched": true})
 
     Returns:
         inspect-ai Task instance
     """
-    renderer_instance = get_renderer(renderer, **renderer_kwargs)
+    renderer_instance = get_renderer(renderer, **(renderer_config or {}))
 
     dataset = create_single_dataset(
         n=n,
@@ -78,6 +75,7 @@ def single_lof_task(
             "seed": seed,
             "renderer": renderer,
             "render_seed": render_seed,
+            "renderer_config": renderer_config,
             "difficulty_distribution": difficulty_counts,
             "difficulty_configs": {
                 config[0]: {

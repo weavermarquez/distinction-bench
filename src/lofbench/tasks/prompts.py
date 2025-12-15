@@ -51,7 +51,7 @@ Two nested boundaries annihilate to nothing: (()) = nothing
 After working through ALL expressions, provide your final answers in this exact JSON format:
 
 ```json
-{{"E1": "marked", "E2": "unmarked", ..., "total_marked": N}}
+{"E1": "marked", "E2": "unmarked", ...}
 ```
 Where each E# is either "marked" or "unmarked", and total_marked is the count of marked expressions.
 """
