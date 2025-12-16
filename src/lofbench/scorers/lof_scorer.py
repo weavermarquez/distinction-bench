@@ -8,6 +8,33 @@ from typing import Literal
 
 from inspect_ai.scorer import Score, Scorer, Target, accuracy, mean, scorer, stderr
 
+# Opening and closing bracket characters for normalization
+OPEN_BRACKETS = set("([{<⟨〈〈《「『")
+CLOSE_BRACKETS = set(")]}>⟩〉〉》」』")
+
+
+def normalize_to_parens(expr: str) -> str:
+    """
+    Normalize any bracket notation to standard parentheses.
+
+    Converts all opening brackets to '(' and closing brackets to ')'.
+    This allows structural comparison regardless of bracket style.
+
+    Args:
+        expr: Expression string with any bracket notation
+
+    Returns:
+        Expression with only '(' and ')' brackets
+    """
+    result = []
+    for char in expr:
+        if char in OPEN_BRACKETS:
+            result.append("(")
+        elif char in CLOSE_BRACKETS:
+            result.append(")")
+        # Skip other characters (whitespace, etc.)
+    return "".join(result)
+
 
 def extract_single_answer(response: str) -> Literal["marked", "unmarked", "unknown"]:
     """
@@ -195,11 +222,13 @@ def lof_composite_scorer() -> Scorer:
         # Compute all_correct (results)
         all_correct = 1.0 if correct_results == n else 0.0
 
-        # Compute structure_accuracy (canonical forms)
+        # Compute structure_accuracy (canonical forms) using structural comparison
         correct_canonicals = sum(
             1
             for i, canonical in enumerate(canonicals)
-            if canonical and i < len(original_expressions) and canonical == original_expressions[i]
+            if canonical
+            and i < len(original_expressions)
+            and normalize_to_parens(canonical) == normalize_to_parens(original_expressions[i])
         )
         structure_accuracy = correct_canonicals / n if n > 0 else 0.0
 

@@ -1,6 +1,10 @@
 """Tests for lofbench.scorers module."""
 
-from lofbench.scorers import extract_composite_answer, extract_single_answer
+from lofbench.scorers import (
+    extract_composite_answer,
+    extract_single_answer,
+    normalize_to_parens,
+)
 
 
 class TestExtractSingleAnswer:
@@ -75,3 +79,47 @@ class TestExtractCompositeAnswer:
         response = '{"E1": {"canonical": "()", "result": "void"}, "E2": {"canonical": "", "result": "()"}}'
         result = extract_composite_answer(response, 2)
         assert result["results"] == ["unmarked", "marked"]
+
+
+class TestNormalizeToParens:
+    """Test bracket normalization for structural comparison."""
+
+    def test_normalize_parens(self):
+        """Standard parens unchanged."""
+        assert normalize_to_parens("(())") == "(())"
+        assert normalize_to_parens("()()") == "()()"
+
+    def test_normalize_brackets(self):
+        """Square brackets converted."""
+        assert normalize_to_parens("[[]]") == "(())"
+        assert normalize_to_parens("[][]") == "()()"
+
+    def test_normalize_braces(self):
+        """Curly braces converted."""
+        assert normalize_to_parens("{{}}") == "(())"
+
+    def test_normalize_mixed(self):
+        """Mixed brackets normalized."""
+        assert normalize_to_parens("[()]") == "(())"
+        assert normalize_to_parens("{[()]}") == "((()))"
+        assert normalize_to_parens("()[]{}") == "()()()"
+
+    def test_normalize_unicode(self):
+        """Unicode brackets normalized."""
+        assert normalize_to_parens("⟨⟩") == "()"
+        assert normalize_to_parens("⟨⟨⟩⟩") == "(())"
+
+    def test_normalize_mismatched(self):
+        """Mismatched brackets still normalize by position."""
+        assert normalize_to_parens("[)") == "()"
+        assert normalize_to_parens("[⟩") == "()"
+        assert normalize_to_parens("({⟩]") == "(())"
+
+    def test_normalize_empty(self):
+        """Empty string returns empty."""
+        assert normalize_to_parens("") == ""
+
+    def test_normalize_strips_whitespace(self):
+        """Whitespace is stripped."""
+        assert normalize_to_parens("( ( ) )") == "(())"
+        assert normalize_to_parens("[ ] [ ]") == "()()"
