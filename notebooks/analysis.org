@@ -1,0 +1,583 @@
+#+title: Evaluation Log Analysis
+#+date: <2025-12-15 Sun>
+#+author: Valerie Kim
+#+property: header-args:python :session analysis :results output :python "../.venv/bin/python"
+
+* Introduction
+
+This notebook analyzes evaluation results from running the distinction benchmark
+on various models. It loads logs, computes metrics, compares models, and exports
+results for further analysis.
+
+* Setup
+
+#+begin_src python
+import os
+import sys
+from pathlib import Path
+
+# Navigate to project root for correct paths
+nb_dir = Path.cwd()
+project_root = nb_dir.parent
+os.chdir(nb_dir)
+
+# Add src to path
+sys.path.insert(0, str(project_root / "src"))
+
+print("Setup complete.")
+print(f"Working directory: {Path.cwd()}")
+print(f"Project root: {project_root}")
+print(f"Log directory: {project_root / 'logs'}")
+#+end_src
+
+* Load Evaluation Logs
+
+** List Available Logs
+
+#+begin_src python
+from inspect_ai.log import list_eval_logs
+from pathlib import Path
+
+log_dir = Path("../logs")
+log_paths = list(list_eval_logs(str(log_dir)))
+
+print(f"Found {len(log_paths)} evaluation logs\n")
+
+if log_paths:
+    print("Most recent logs:")
+    for log_info in log_paths[-10:]:
+        # Extract just the filename for display
+        name = Path(str(log_info)).name if hasattr(log_info, '__str__') else str(log_info.name)
+        print(f"  {name}")
+else:
+    print("No logs found. Run some evaluations first!")
+#+end_src
+
+** Quick Log Summary
+
+#+begin_src python
+from inspect_ai.log import read_eval_log
+from collections import Counter
+
+if log_paths:
+    # Summarize all logs
+    tasks = Counter()
+    models = Counter()
+
+    for log_path in log_paths:
+        try:
+            log = read_eval_log(log_path)
+            tasks[log.eval.task] += 1
+            models[log.eval.model] += 1
+        except Exception as e:
+            print(f"Warning: Could not read {log_path}: {e}")
+
+    print("=== Log Summary ===\n")
+
+    print("By Task:")
+    for task, count in tasks.most_common():
+        print(f"  {task}: {count}")
+
+    print("\nBy Model:")
+    for model, count in models.most_common():
+        print(f"  {model}: {count}")
+else:
+    print("No logs to summarize")
+#+end_src
+
+* Single Task Analysis
+
+** Analyze Most Recent Single Task
+
+#+begin_src python
+from inspect_ai.log import read_eval_log
+from collections import defaultdict
+
+# Find single task logs
+single_logs = [p for p in log_paths if "single" in str(p)]
+
+if not single_logs:
+    print("No single task logs found")
+else:
+    # Analyze most recent
+    log = read_eval_log(single_logs[-1])
+
+    print(f"=== {log.eval.task} ===")
+    print(f"Model: {log.eval.model}")
+    print(f"Samples: {len(log.samples)}")
+    print(f"Date: {log.eval.created}")
+
+    # Overall accuracy
+    correct = sum(1 for s in log.samples if s.scores and s.scores[0].value == "C")
+    total = len(log.samples)
+    print(f"\nOverall Accuracy: {100*correct/total:.1f}% ({correct}/{total})")
+
+    # By difficulty
+    by_diff = defaultdict(lambda: {"correct": 0, "total": 0})
+    for s in log.samples:
+        diff = s.metadata.get("difficulty", "unknown")
+        by_diff[diff]["total"] += 1
+        if s.scores and s.scores[0].value == "C":
+            by_diff[diff]["correct"] += 1
+
+    print("\nAccuracy by Difficulty:")
+    for diff in sorted(by_diff.keys()):
+        d = by_diff[diff]
+        acc = 100 * d["correct"] / d["total"] if d["total"] > 0 else 0
+        bar = "█" * int(30 * acc / 100)
+        print(f"  {diff:10}: {acc:5.1f}% {bar} ({d['correct']}/{d['total']})")
+
+    # By target
+    by_target = defaultdict(lambda: {"correct": 0, "total": 0})
+    for s in log.samples:
+        target = s.target
+        by_target[target]["total"] += 1
+        if s.scores and s.scores[0].value == "C":
+            by_target[target]["correct"] += 1
+
+    print("\nAccuracy by Target:")
+    for target in sorted(by_target.keys()):
+        d = by_target[target]
+        acc = 100 * d["correct"] / d["total"] if d["total"] > 0 else 0
+        print(f"  {target:10}: {acc:5.1f}% ({d['correct']}/{d['total']})")
+#+end_src
+
+** Single Task Error Analysis
+
+#+begin_src python
+from inspect_ai.log import read_eval_log
+
+if single_logs:
+    log = read_eval_log(single_logs[-1])
+
+    # Find incorrect samples
+    errors = [s for s in log.samples if s.scores and s.scores[0].value != "C"]
+
+    print(f"=== Error Analysis ===")
+    print(f"Total errors: {len(errors)}/{len(log.samples)}\n")
+
+    if errors and len(errors) <= 10:
+        print("Sample errors:\n")
+        for i, s in enumerate(errors[:10], 1):
+            input_expr = s.input[0].text if hasattr(s.input[0], 'text') else str(s.input[0])
+            answer = s.scores[0].answer if s.scores else "N/A"
+            print(f"{i}. Input: {input_expr}")
+            print(f"   Expected: {s.target}")
+            print(f"   Got: {answer}")
+            print(f"   Difficulty: {s.metadata.get('difficulty', 'unknown')}")
+            print()
+    elif errors:
+        print(f"Too many errors to display ({len(errors)} total)")
+        print("Consider filtering by difficulty or target")
+#+end_src
+
+* Composite Task Analysis
+
+** Analyze Most Recent Composite Task
+
+#+begin_src python
+from inspect_ai.log import read_eval_log
+from collections import Counter
+
+# Find composite task logs
+composite_logs = [p for p in log_paths if "composite" in str(p)]
+
+if not composite_logs:
+    print("No composite task logs found")
+else:
+    log = read_eval_log(composite_logs[-1])
+
+    print(f"=== {log.eval.task} ===")
+    print(f"Model: {log.eval.model}")
+    print(f"Groups: {len(log.samples)}")
+    print(f"Date: {log.eval.created}")
+
+    # Aggregate metrics
+    per_item_acc = []
+    all_correct = []
+    count_match = []
+
+    for s in log.samples:
+        if s.scores and isinstance(s.scores[0].value, dict):
+            v = s.scores[0].value
+            per_item_acc.append(v.get("per_item_accuracy", 0))
+            all_correct.append(v.get("all_correct", 0))
+            count_match.append(v.get("count_match", 0))
+
+    n = len(per_item_acc)
+    if n > 0:
+        print(f"\nMetrics:")
+        print(f"  Per-item accuracy: {100*sum(per_item_acc)/n:.1f}%")
+        print(f"  All-correct:       {100*sum(all_correct)/n:.1f}% ({int(sum(all_correct))}/{n})")
+        print(f"  Count match:       {100*sum(count_match)/n:.1f}%")
+
+    # Target count distribution
+    print("\n=== Target Count Distribution ===")
+    counts = Counter(s.metadata.get("count", -1) for s in log.samples)
+    max_count = max(counts.values()) if counts else 1
+    for k in sorted(counts.keys()):
+        bar = "█" * int(30 * counts[k] / max_count)
+        print(f"  {k} marked: {bar} {counts[k]}")
+
+    # Accuracy by target count
+    print("\n=== Accuracy by Target Count ===")
+    by_count = {}
+    for s in log.samples:
+        count = s.metadata.get("count", -1)
+        if count not in by_count:
+            by_count[count] = {"correct": 0, "total": 0}
+        by_count[count]["total"] += 1
+        if s.scores and isinstance(s.scores[0].value, dict):
+            if s.scores[0].value.get("all_correct", 0) == 1:
+                by_count[count]["correct"] += 1
+
+    for k in sorted(by_count.keys()):
+        d = by_count[k]
+        acc = 100 * d["correct"] / d["total"] if d["total"] > 0 else 0
+        print(f"  {k} marked: {acc:5.1f}% ({d['correct']}/{d['total']})")
+#+end_src
+
+** Composite Task: Item-Level Analysis
+
+#+begin_src python
+from inspect_ai.log import read_eval_log
+
+if composite_logs:
+    log = read_eval_log(composite_logs[-1])
+
+    # Collect all individual items from all groups
+    total_items = 0
+    correct_items = 0
+
+    for sample in log.samples:
+        if sample.scores and isinstance(sample.scores[0].value, dict):
+            score_dict = sample.scores[0].value
+            items = score_dict.get("items", [])
+            total_items += len(items)
+            correct_items += sum(1 for item in items if item.get("correct", False))
+
+    print(f"=== Item-Level Statistics ===")
+    print(f"Total items: {total_items}")
+    print(f"Correct: {correct_items}")
+    print(f"Accuracy: {100*correct_items/total_items:.1f}%")
+#+end_src
+
+* Model Comparison
+
+** Compare All Models on Single Task
+
+#+begin_src python
+from inspect_ai.log import read_eval_log
+from collections import defaultdict
+
+# Group logs by model
+by_model = defaultdict(list)
+for path in log_paths:
+    try:
+        log = read_eval_log(path)
+        if "single" in (log.eval.task or ""):
+            by_model[log.eval.model].append(log)
+    except:
+        pass
+
+if by_model:
+    print("=== Single Task: Model Comparison ===\n")
+
+    results = []
+    for model in sorted(by_model.keys()):
+        logs = by_model[model]
+        # Use most recent log for each model
+        log = logs[-1]
+
+        correct = sum(1 for s in log.samples if s.scores and s.scores[0].value == "C")
+        total = len(log.samples)
+        acc = 100 * correct / total if total > 0 else 0
+
+        results.append((model, acc, correct, total))
+
+    # Sort by accuracy
+    results.sort(key=lambda x: x[1], reverse=True)
+
+    for model, acc, correct, total in results:
+        bar = "█" * int(40 * acc / 100)
+        print(f"{model:40} {acc:5.1f}% {bar}")
+        print(f"{'':40} ({correct}/{total})\n")
+else:
+    print("No single task results to compare")
+#+end_src
+
+** Compare All Models on Composite Task
+
+#+begin_src python
+from inspect_ai.log import read_eval_log
+from collections import defaultdict
+
+# Group logs by model
+by_model = defaultdict(list)
+for path in log_paths:
+    try:
+        log = read_eval_log(path)
+        if "composite" in (log.eval.task or ""):
+            by_model[log.eval.model].append(log)
+    except:
+        pass
+
+if by_model:
+    print("=== Composite Task: Model Comparison ===\n")
+
+    results = []
+    for model in sorted(by_model.keys()):
+        logs = by_model[model]
+        log = logs[-1]
+
+        # Calculate metrics
+        per_item_acc = []
+        all_correct = []
+        for s in log.samples:
+            if s.scores and isinstance(s.scores[0].value, dict):
+                v = s.scores[0].value
+                per_item_acc.append(v.get("per_item_accuracy", 0))
+                all_correct.append(v.get("all_correct", 0))
+
+        n = len(per_item_acc)
+        if n > 0:
+            avg_per_item = 100 * sum(per_item_acc) / n
+            avg_all_correct = 100 * sum(all_correct) / n
+            results.append((model, avg_per_item, avg_all_correct, n))
+
+    # Sort by per-item accuracy
+    results.sort(key=lambda x: x[1], reverse=True)
+
+    print(f"{'Model':<40} {'Per-Item':<10} {'All-Correct':<12} {'N':<5}")
+    print("-" * 70)
+    for model, per_item, all_correct, n in results:
+        print(f"{model:<40} {per_item:>6.1f}%    {all_correct:>6.1f}%       {n:>3}")
+else:
+    print("No composite task results to compare")
+#+end_src
+
+* Detailed Reports
+
+** Full Analysis Report
+
+#+begin_src python
+import sys
+sys.path.insert(0, str(project_root / "src"))
+
+from lofbench.analysis import print_report
+
+print_report(str(project_root / "logs"))
+#+end_src
+
+** Custom Filtering
+
+#+begin_src python
+from inspect_ai.log import read_eval_log
+
+# Example: Filter logs by date range, model, or task
+filtered_logs = []
+
+for path in log_paths:
+    try:
+        log = read_eval_log(path)
+
+        # Add your filters here
+        # if log.eval.model == "anthropic/claude-sonnet-4-20250514":
+        # if "2025-12-15" in str(log.eval.created):
+        # if log.eval.task == "single-lof-task":
+
+        filtered_logs.append(log)
+    except:
+        pass
+
+print(f"Filtered to {len(filtered_logs)} logs")
+#+end_src
+
+* Export Results
+
+** Export Single Task to CSV
+
+#+begin_src python
+from inspect_ai.log import read_eval_log
+from pathlib import Path
+import csv
+
+# Collect all single task samples
+rows = []
+for path in log_paths:
+    try:
+        log = read_eval_log(path)
+        if "single" not in (log.eval.task or ""):
+            continue
+
+        for s in log.samples:
+            rows.append({
+                "model": log.eval.model,
+                "task": log.eval.task,
+                "date": str(log.eval.created),
+                "sample_id": s.id,
+                "target": s.target,
+                "correct": s.scores[0].value == "C" if s.scores else None,
+                "answer": s.scores[0].answer if s.scores else None,
+                "difficulty": s.metadata.get("difficulty"),
+                "depth": s.metadata.get("depth"),
+                "steps": s.metadata.get("steps"),
+            })
+    except Exception as e:
+        print(f"Warning: Error reading {path}: {e}")
+
+if rows:
+    output_path = Path("single_results.csv")
+    with open(output_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"✓ Exported {len(rows)} rows to {output_path}")
+else:
+    print("No single task results to export")
+#+end_src
+
+** Export Composite Task to CSV
+
+#+begin_src python
+from inspect_ai.log import read_eval_log
+from pathlib import Path
+import csv
+
+# Collect all composite task samples
+rows = []
+for path in log_paths:
+    try:
+        log = read_eval_log(path)
+        if "composite" not in (log.eval.task or ""):
+            continue
+
+        for s in log.samples:
+            if s.scores and isinstance(s.scores[0].value, dict):
+                v = s.scores[0].value
+                rows.append({
+                    "model": log.eval.model,
+                    "task": log.eval.task,
+                    "date": str(log.eval.created),
+                    "sample_id": s.id,
+                    "count": s.metadata.get("count"),
+                    "per_item_accuracy": v.get("per_item_accuracy", 0),
+                    "all_correct": v.get("all_correct", 0),
+                    "count_match": v.get("count_match", 0),
+                    "group_size": len(v.get("items", [])),
+                })
+    except Exception as e:
+        print(f"Warning: Error reading {path}: {e}")
+
+if rows:
+    output_path = Path("composite_results.csv")
+    with open(output_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"✓ Exported {len(rows)} rows to {output_path}")
+else:
+    print("No composite task results to export")
+#+end_src
+
+** Export to JSON
+
+#+begin_src python
+from inspect_ai.log import read_eval_log
+from pathlib import Path
+import json
+
+# Export full details for last N logs
+all_results = []
+for path in log_paths[-10:]:  # Last 10 logs
+    try:
+        log = read_eval_log(path)
+        all_results.append({
+            "task": log.eval.task,
+            "model": log.eval.model,
+            "created": str(log.eval.created),
+            "status": log.status,
+            "samples": [
+                {
+                    "id": s.id,
+                    "target": s.target,
+                    "score": s.scores[0].value if s.scores else None,
+                    "answer": s.scores[0].answer if s.scores else None,
+                    "metadata": s.metadata,
+                }
+                for s in log.samples
+            ]
+        })
+    except Exception as e:
+        print(f"Warning: Error: {e}")
+
+if all_results:
+    output_path = Path("eval_results.json")
+    with open(output_path, "w") as f:
+        json.dump(all_results, f, indent=2, default=str)
+    print(f"✓ Exported {len(all_results)} logs to {output_path}")
+else:
+    print("No results to export")
+#+end_src
+
+* Run New Evaluations
+
+** Single Task Evaluation Commands
+
+#+begin_example bash :eval no
+# Claude Sonnet 4.5 - Text with noisy brackets
+uv run inspect eval src/lofbench/tasks/single.py \
+--model anthropic/claude-sonnet-4-20250514 \
+-T n=100 \
+-T renderer=noisy_parens
+
+# Claude Opus 4.5 - Visual with circles
+uv run inspect eval src/lofbench/tasks/single.py \
+--model anthropic/claude-opus-4-5-20251101 \
+-T n=100 \
+-T renderer=circle \
+-T render_seed=42
+
+# GPT-5.2
+uv run inspect eval src/lofbench/tasks/single.py \
+--model openai/gpt-5.2 \
+-T n=100 \
+--reasoning-effort high
+#+end_example
+
+** Composite Task Evaluation Commands
+
+#+begin_example bash :eval no
+# Claude Opus 4.5 - Text with noisy brackets
+uv run inspect eval src/lofbench/tasks/composite.py \
+--model anthropic/claude-opus-4-5-20251101 \
+--reasoning-tokens 10000 \
+-T n_groups=500 \
+-T renderer=noisy_parens
+
+# Claude Opus 4.5 - Visual with alternating fills
+uv run inspect eval src/lofbench/tasks/composite.py \
+--model anthropic/claude-opus-4-5-20251101 \
+-T n_groups=100 \
+-T renderer=circle \
+-T 'renderer_config={"fill_style": "alternating"}' \
+-T render_seed=42
+
+# Gemini 3.0 Pro - Visual evaluation
+uv run inspect eval src/lofbench/tasks/composite.py \
+--model google/gemini-3.0-pro \
+--reasoning-tokens 10000 \
+-T n_groups=100 \
+-T renderer=circle
+#+end_example
+
+** Launch Interactive Viewer
+
+#+begin_src python
+import subprocess
+
+# This will open the inspect viewer in your browser
+print("To view results interactively, run in terminal:")
+print("  cd ..")
+print("  uv run inspect view")
+#+end_src
