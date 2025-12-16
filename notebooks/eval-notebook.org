@@ -128,21 +128,34 @@ print("  uv run inspect view")
 #+end_src
 
 #+begin_example bash :eval no
-# Claude Opus 4.5
+# Claude Opus 4.5 - Text with noisy brackets
 uv run inspect eval src/lofbench/tasks/composite.py \
 --model anthropic/claude-opus-4-5-20251101 \
---reasoning-tokens 10000 -T n_groups=500
-- T renderer=noisy_parens
+--reasoning-tokens 10000 -T n_groups=500 \
+-T renderer=noisy_parens
+
+# Claude Opus 4.5 - Visual with circles (outline)
+uv run inspect eval src/lofbench/tasks/single.py \
+--model anthropic/claude-opus-4-5-20251101 \
+-T renderer=circle -T render_seed=42
+
+# Claude Opus 4.5 - Visual with alternating fills
+uv run inspect eval src/lofbench/tasks/composite.py \
+--model anthropic/claude-opus-4-5-20251101 \
+-T renderer=circle \
+-T 'renderer_config={"fill_style": "alternating"}' \
+-T render_seed=42
 
 # GPT-5.2
 uv run inspect eval src/lofbench/tasks/single.py \
 --model openai/gpt-5.2 \
 --reasoning-effort high
 
-# Gemini 3.0 Pro
+# Gemini 3.0 Pro - Visual evaluation
 uv run inspect eval src/lofbench/tasks/single.py \
 --model google/gemini-3.0-pro \
---reasoning-tokens 10000
+--reasoning-tokens 10000 \
+-T renderer=circle
 #+end_example
 
 
