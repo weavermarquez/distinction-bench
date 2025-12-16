@@ -9,7 +9,10 @@ dependencies = [
     "anthropic>=0.75.0",
     "google-genai>=1.55.0",
     "inspect-ai>=0.3.154",
+    "matplotlib>=3.10.8",
     "openai>=2.11.0",
+    "pandas>=2.3.3",
+    "pyarrow>=22.0.0",
 ]
 
 [project.optional-dependencies]
@@ -22,6 +25,10 @@ eval = [
 dev = [
     "pytest>=8.0",
     "ruff>=0.8",
+]
+analysis = [
+    "pandas>=2.0",
+    "pyarrow>=14.0",
 ]
 
 [build-system]
@@ -43,5 +50,6 @@ select = ["E", "F", "I", "UP"]
 
 [dependency-groups]
 dev = [
+    "playwright>=1.57.0",
     "pytest>=9.0.2",
 ]
