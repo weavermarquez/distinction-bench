@@ -171,9 +171,10 @@ print(f"Available renderers: {list_renderers()}")
 ** Canonical Rendering
 
 #+begin_src python
-from lofbench.renderers import get_renderer
+from lofbench.renderers import CanonicalConfig, CanonicalRenderer
 
-canonical = get_renderer("canonical")
+config = CanonicalConfig(spacing=False)
+canonical = CanonicalRenderer(config)
 
 expressions = [
     "()",
@@ -190,6 +191,41 @@ for expr in expressions:
     result = canonical.render(expr)
     print(f"  {expr:15} → {result.rendered}")
 #+end_src
+
+** Canonical with Spacing
+
+#+begin_src python
+from lofbench.renderers import CanonicalConfig, CanonicalRenderer
+
+config = CanonicalConfig(spacing=True)
+canonical = CanonicalRenderer(config)
+
+expressions = [
+    "()",
+    "(())",
+    "()()",
+    "((())())",
+    "(())(())",
+]
+
+print("\n=== Canonical Rendering ===")
+print("(Standard parentheses)\n")
+
+for expr in expressions:
+    result = canonical.render(expr)
+    print(f"  {expr:15} → {result.rendered}")
+#+end_src
+
+#+RESULTS:
+: 
+: === Canonical Rendering ===
+: (Standard parentheses)
+: 
+:   ()              → ()
+:   (())            → ( () )
+:   ()()            → () ()
+:   ((())())        → ( ( () )())
+:   (())(())        → (())(() )
 
 ** Noisy Brackets
 

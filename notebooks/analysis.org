@@ -730,10 +730,35 @@ uv run inspect eval src/lofbench/tasks/composite.py \
 # Gemini 3.0 Pro - Visual evaluation
 uv run inspect eval src/lofbench/tasks/composite.py \
 --model google/gemini-3.0-pro \
---reasoning-tokens 10000 \
--T n_groups=100 \
+--reasoning-effort medium \
+-T n_groups=10 \
 -T renderer=circle
+
+# GPT 5.2 - Visual with alternating fills
+uv run inspect eval src/lofbench/tasks/composite.py \
+--model openai/gpt-5.2 \
+-T n_groups=10 \
+-T renderer=circle \
+--reasoning-effort low \
+-T 'renderer_config={"mismatched": True}' \
 #+end_example
+
+
+uv run inspect eval src/lofbench/tasks/composite.py \
+--model google/gemini-3.0-pro \
+--reasoning-effort low \
+-T n_groups=100 \
+--cache
+
+0, 512, 2048, 8192, 24576 (+ “unset” as baseline if easy)
+3-5 dialects
+
+uv run inspect eval src/lofbench/tasks/composite.py \
+--model google/gemini-2.5-flash \
+-T n_groups=100 \
+--cache
+
+
 
 ** Launch Interactive Viewer
 
