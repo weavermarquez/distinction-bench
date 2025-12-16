@@ -51,7 +51,7 @@ print(f"Found {len(log_paths)} evaluation logs\n")
 
 if log_paths:
     print("Most recent logs:")
-    for log_info in log_paths[-10:]:
+    for log_info in log_paths[:10]:
         # Extract just the filename for display
         name = Path(str(log_info)).name if hasattr(log_info, '__str__') else str(log_info.name)
         print(f"  {name}")
@@ -61,19 +61,19 @@ else:
 
 #+RESULTS:
 #+begin_example
-Found 30 evaluation logs
+Found 31 evaluation logs
 
 Most recent logs:
-  2025-12-15T20-34-07+00-00_composite-lof-task_jut2N5Zm5MqF6ncXE2NLTh.eval' type='file' size=83467 mtime=1765830879929.4504 task='composite-lof-task' task_id='jut2N5Zm5MqF6ncXE2NLTh' suffix=None
-  2025-12-15T19-59-39+00-00_single-lof-task_7D79W9HFN2ZtKRiEDnHPk3.eval' type='file' size=502710 mtime=1765828927149.5789 task='single-lof-task' task_id='7D79W9HFN2ZtKRiEDnHPk3' suffix=None
-  2025-12-15T19-44-26+00-00_single-lof-task_2TLQux8Mxm9xCgsSMHhfEG.eval' type='file' size=3419 mtime=1765827871796.0745 task='single-lof-task' task_id='2TLQux8Mxm9xCgsSMHhfEG' suffix=None
-  2025-12-15T19-16-13+00-00_composite-lof-task_PzDKzXoAhbNqXck3toRiLj.eval' type='file' size=65725 mtime=1765826194306.9973 task='composite-lof-task' task_id='PzDKzXoAhbNqXck3toRiLj' suffix=None
-  2025-12-15T19-13-58+00-00_composite-lof-task_6wa6YbyaHBSWaLSs5SUqg9.eval' type='file' size=59456 mtime=1765826042644.2852 task='composite-lof-task' task_id='6wa6YbyaHBSWaLSs5SUqg9' suffix=None
-  2025-12-15T19-13-51+00-00_composite-lof-task_JThQxq6Hc8AR8cXgg6G7Lj.eval' type='file' size=3031 mtime=1765826033310.1045 task='composite-lof-task' task_id='JThQxq6Hc8AR8cXgg6G7Lj' suffix=None
-  2025-12-15T18-54-08+00-00_composite-lof-task_cUGwfi77g8TaP2nMGW9A7j.eval' type='file' size=563260 mtime=1765825004084.0803 task='composite-lof-task' task_id='cUGwfi77g8TaP2nMGW9A7j' suffix=None
-  2025-12-15T18-51-52+00-00_single-lof-task_ifQKGvv8hLQ3SaL6AFAB27.eval' type='file' size=52876 mtime=1765824734877.984 task='single-lof-task' task_id='ifQKGvv8hLQ3SaL6AFAB27' suffix=None
-  2025-12-15T18-16-04+00-00_single-lof-task_gKrKMKAmTFA8uDqTqkcQmw.eval' type='file' size=52340 mtime=1765822584128.2896 task='single-lof-task' task_id='gKrKMKAmTFA8uDqTqkcQmw' suffix=None
-  2025-12-15T18-06-27+00-00_single-lof-task_WJ8d7dCMEKohtz9s26pidR.eval' type='file' size=451586 mtime=1765822068236.5298 task='single-lof-task' task_id='WJ8d7dCMEKohtz9s26pidR' suffix=None
+  2025-12-16T04-02-04+00-00_composite-lof-task_Zj9CczHb4ruv6cpszVnLE2.eval' type='file' size=23791943 mtime=1765859545664.1738 task='composite-lof-task' task_id='Zj9CczHb4ruv6cpszVnLE2' suffix=None
+  2025-12-16T01-43-50+00-00_composite-lof-task_MSnrYp76447Lbe8fD64VZs.eval' type='file' size=613590073 mtime=1765852348198.4766 task='composite-lof-task' task_id='MSnrYp76447Lbe8fD64VZs' suffix=None
+  2025-12-16T02-12-05+00-00_composite-lof-task_e75qLREJM4Wg8V9Lyyh4dU.eval' type='file' size=1952 mtime=1765851126048.8245 task='composite-lof-task' task_id='e75qLREJM4Wg8V9Lyyh4dU' suffix=None
+  2025-12-16T01-49-31+00-00_composite-lof-task_QYMY25BtMmHVeHQ9VWFiC3.eval' type='file' size=47238 mtime=1765849947201.1284 task='composite-lof-task' task_id='QYMY25BtMmHVeHQ9VWFiC3' suffix=None
+  2025-12-16T01-41-48+00-00_composite-lof-task_PXDDRrkeNMCzdhBThg2qDs.eval' type='file' size=9353 mtime=1765849387237.8245 task='composite-lof-task' task_id='PXDDRrkeNMCzdhBThg2qDs' suffix=None
+  2025-12-16T01-37-22+00-00_composite-lof-task_P2i25rzfcGzpBTkroQUs2x.eval' type='file' size=52146 mtime=1765849066494.539 task='composite-lof-task' task_id='P2i25rzfcGzpBTkroQUs2x' suffix=None
+  2025-12-16T01-35-15+00-00_composite-lof-task_h4NFeSWFfqPYKshTUiajE3.eval' type='file' size=49603 mtime=1765848934653.0486 task='composite-lof-task' task_id='h4NFeSWFfqPYKshTUiajE3' suffix=None
+  2025-12-16T00-36-57+00-00_composite-lof-task_Y2VeJxvZZuER2C7u9LRSgx.eval' type='file' size=7731540 mtime=1765848855806.0928 task='composite-lof-task' task_id='Y2VeJxvZZuER2C7u9LRSgx' suffix=None
+  2025-12-16T00-34-30+00-00_composite-lof-task_3x9hqVxkznFYxwiFK9Yj3N.eval' type='file' size=194235 mtime=1765845280430.772 task='composite-lof-task' task_id='3x9hqVxkznFYxwiFK9Yj3N' suffix=None
+  2025-12-16T00-26-03+00-00_composite-lof-task_cdqvjYE5bHa9MzbbSoLB2d.eval' type='file' size=862844 mtime=1765845069404.6377 task='composite-lof-task' task_id='cdqvjYE5bHa9MzbbSoLB2d' suffix=None
 #+end_example
 
 ** Quick Log Summary
@@ -189,10 +189,25 @@ else:
 #+end_src
 
 #+RESULTS:
-: === single_lof_task ===
-: Model: anthropic/claude-sonnet-4-20250514
-: Samples: 100
-: Date: 2025-12-15T18:06:27+00:00
+#+begin_example
+=== single_lof_task ===
+Model: anthropic/claude-sonnet-4-20250514
+Samples: 100
+Date: 2025-12-15T18:06:27+00:00
+
+Overall Accuracy: 55.0% (55/100)
+
+Accuracy by Difficulty:
+  1. easy   :  50.0% ███████████████ (10/20)
+  2. medium :  55.0% ████████████████ (11/20)
+  3. hard   :  50.0% ███████████████ (10/20)
+  4. lunatic:  60.0% ██████████████████ (12/20)
+  5. extra  :  60.0% ██████████████████ (12/20)
+
+Accuracy by Target:
+  marked    :  58.2% (32/55)
+  unmarked  :  51.1% (23/45)
+#+end_example
 
 ** Single Task Error Analysis
 
@@ -231,6 +246,11 @@ if single_logs:
 #+end_src
 
 #+RESULTS:
+: === Error Analysis ===
+: Total errors: 45/100
+: 
+: Too many errors to display (45 total)
+: Consider filtering by difficulty or target
 
 * Composite Task Analysis
 
@@ -246,7 +266,7 @@ composite_logs = [p for p in log_paths if "composite" in str(p)]
 if not composite_logs:
     print("No composite task logs found")
 else:
-    log = read_eval_log(composite_logs[-1])
+    log = read_eval_log(composite_logs[0])
 
     print(f"=== {log.eval.task} ===")
     print(f"Model: {log.eval.model}")
@@ -262,54 +282,37 @@ else:
     # Aggregate metrics
     per_item_acc = []
     all_correct = []
-    count_match = []
+    structure_acc = []
 
     for s in log.samples:
         score_val = get_score_value(s)
         if score_val and isinstance(score_val, dict):
             per_item_acc.append(score_val.get("per_item_accuracy", 0))
             all_correct.append(score_val.get("all_correct", 0))
-            count_match.append(score_val.get("count_match", 0))
+            # Only include structure_accuracy if it exists
+            if "structure_accuracy" in score_val:
+                structure_acc.append(score_val.get("structure_accuracy", 0))
 
     n = len(per_item_acc)
     if n > 0:
         print(f"\nMetrics:")
-        print(f"  Per-item accuracy: {100*sum(per_item_acc)/n:.1f}%")
-        print(f"  All-correct:       {100*sum(all_correct)/n:.1f}% ({int(sum(all_correct))}/{n})")
-        print(f"  Count match:       {100*sum(count_match)/n:.1f}%")
-
-    # Target count distribution
-    print("\n=== Target Count Distribution ===")
-    counts = Counter(s.metadata.get("count", -1) for s in log.samples)
-    max_count = max(counts.values()) if counts else 1
-    for k in sorted(counts.keys()):
-        bar = "█" * int(30 * counts[k] / max_count)
-        print(f"  {k} marked: {bar} {counts[k]}")
-
-    # Accuracy by target count
-    print("\n=== Accuracy by Target Count ===")
-    by_count = {}
-    for s in log.samples:
-        count = s.metadata.get("count", -1)
-        if count not in by_count:
-            by_count[count] = {"correct": 0, "total": 0}
-        by_count[count]["total"] += 1
-        score_val = get_score_value(s)
-        if score_val and isinstance(score_val, dict):
-            if score_val.get("all_correct", 0) == 1:
-                by_count[count]["correct"] += 1
-
-    for k in sorted(by_count.keys()):
-        d = by_count[k]
-        acc = 100 * d["correct"] / d["total"] if d["total"] > 0 else 0
-        print(f"  {k} marked: {acc:5.1f}% ({d['correct']}/{d['total']})")
+        print(f"  Per-item accuracy:    {100*sum(per_item_acc)/n:.1f}%")
+        print(f"  All-correct:          {100*sum(all_correct)/n:.1f}% ({int(sum(all_correct))}/{n})")
+        # Only show structure accuracy if we have data for it
+        if structure_acc:
+            print(f"  Structure accuracy:   {100*sum(structure_acc)/len(structure_acc):.1f}%")
 #+end_src
 
 #+RESULTS:
 : === composite_lof_task ===
-: Model: anthropic/claude-sonnet-4-20250514
-: Groups: 100
-: Date: 2025-12-15T18:54:08+00:00
+: Model: google/gemini-3-pro-preview
+: Groups: 90
+: Date: 2025-12-16T04:02:04+00:00
+: 
+: Metrics:
+:   Per-item accuracy: 88.3%
+:   All-correct:       66.7% (60/90)
+:   Count match:       0.0%
 
 ** Composite Task: Item-Level Analysis
 
@@ -317,7 +320,7 @@ else:
 from inspect_ai.log import read_eval_log
 
 if composite_logs:
-    log = read_eval_log(composite_logs[-1])
+    log = read_eval_log(composite_logs[0])
 
     # Helper to get score value
     def get_score_value(sample):
@@ -342,6 +345,11 @@ if composite_logs:
     if total_items > 0:
         print(f"Accuracy: {100*correct_items/total_items:.1f}%")
 #+end_src
+
+#+RESULTS:
+: === Item-Level Statistics ===
+: Total items: 0
+: Correct: 0
 
 * Model Comparison
 
@@ -419,6 +427,7 @@ if by_model:
         return list(sample.scores.values())[0].value
 
     results = []
+    has_structure = False
     for model in sorted(by_model.keys()):
         logs = by_model[model]
         log = logs[-1]
@@ -426,28 +435,53 @@ if by_model:
         # Calculate metrics
         per_item_acc = []
         all_correct = []
+        structure_acc = []
         for s in log.samples:
             score_val = get_score_value(s)
             if score_val and isinstance(score_val, dict):
                 per_item_acc.append(score_val.get("per_item_accuracy", 0))
                 all_correct.append(score_val.get("all_correct", 0))
+                if "structure_accuracy" in score_val:
+                    structure_acc.append(score_val.get("structure_accuracy", 0))
 
         n = len(per_item_acc)
         if n > 0:
             avg_per_item = 100 * sum(per_item_acc) / n
             avg_all_correct = 100 * sum(all_correct) / n
-            results.append((model, avg_per_item, avg_all_correct, n))
+            avg_structure = 100 * sum(structure_acc) / len(structure_acc) if structure_acc else None
+            if avg_structure is not None:
+                has_structure = True
+            results.append((model, avg_per_item, avg_all_correct, avg_structure, n))
 
     # Sort by per-item accuracy
     results.sort(key=lambda x: x[1], reverse=True)
 
-    print(f"{'Model':<40} {'Per-Item':<10} {'All-Correct':<12} {'N':<5}")
-    print("-" * 70)
-    for model, per_item, all_correct, n in results:
-        print(f"{model:<40} {per_item:>6.1f}%    {all_correct:>6.1f}%       {n:>3}")
+    # Print header
+    if has_structure:
+        print(f"{'Model':<40} {'Per-Item':<10} {'All-Correct':<12} {'Structure':<11} {'N':<5}")
+        print("-" * 80)
+    else:
+        print(f"{'Model':<40} {'Per-Item':<10} {'All-Correct':<12} {'N':<5}")
+        print("-" * 70)
+
+    # Print results
+    for model, per_item, all_correct, structure, n in results:
+        if has_structure:
+            structure_str = f"{structure:>6.1f}%" if structure is not None else "    N/A"
+            print(f"{model:<40} {per_item:>6.1f}%    {all_correct:>6.1f}%       {structure_str}     {n:>3}")
+        else:
+            print(f"{model:<40} {per_item:>6.1f}%    {all_correct:>6.1f}%       {n:>3}")
 else:
     print("No composite task results to compare")
 #+end_src
+
+#+RESULTS:
+: === Composite Task: Model Comparison ===
+: 
+: Model                                    Per-Item   All-Correct  N    
+: ----------------------------------------------------------------------
+: anthropic/claude-opus-4-5-20251101         56.7%       0.0%        13
+: anthropic/claude-sonnet-4-20250514         54.1%       2.0%       100
 
 * Detailed Reports
 
@@ -463,6 +497,7 @@ print_report(str(project_root / "logs"))
 #+end_src
 
 #+RESULTS:
+: Loaded 30 logs from /var/home/kwalerie/Documents/org/30-fractal/distinction-bench/logs
 
 ** Custom Filtering
 
@@ -478,15 +513,18 @@ for path in log_paths:
 
         # Add your filters here
         # if log.eval.model == "anthropic/claude-sonnet-4-20250514":
-        # if "2025-12-15" in str(log.eval.created):
+        if "2025-12-15" in str(log.eval.created):
         # if log.eval.task == "single-lof-task":
 
-        filtered_logs.append(log)
+          filtered_logs.append(log)
     except:
         pass
 
 print(f"Filtered to {len(filtered_logs)} logs")
 #+end_src
+
+#+RESULTS:
+: Filtered to 19 logs
 
 * Export Results
 
@@ -564,24 +602,32 @@ for path in log_paths:
         for s in log.samples:
             score_val = get_score_value(s)
             if score_val and isinstance(score_val, dict):
-                rows.append({
+                row = {
                     "model": log.eval.model,
                     "task": log.eval.task,
                     "date": str(log.eval.created),
                     "sample_id": s.id,
-                    "count": s.metadata.get("count"),
                     "per_item_accuracy": score_val.get("per_item_accuracy", 0),
                     "all_correct": score_val.get("all_correct", 0),
-                    "count_match": score_val.get("count_match", 0),
                     "group_size": len(score_val.get("items", [])),
-                })
+                }
+                # Add structure_accuracy only if present
+                if "structure_accuracy" in score_val:
+                    row["structure_accuracy"] = score_val.get("structure_accuracy", 0)
+                rows.append(row)
     except Exception as e:
         print(f"Warning: Error reading {path}: {e}")
 
 if rows:
+    # Collect all unique fieldnames across all rows
+    all_fields = set()
+    for row in rows:
+        all_fields.update(row.keys())
+    fieldnames = sorted(all_fields)  # Sort for consistent ordering
+
     output_path = Path("composite_results.csv")
     with open(output_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
     print(f"✓ Exported {len(rows)} rows to {output_path}")

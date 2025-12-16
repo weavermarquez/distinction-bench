@@ -62,7 +62,8 @@ Example: [()] simplifies to nothing
 ## Instructions
 
 1. For each expression, identify the structure of distinctions
-2. Convert to standard mixed-bracket [()]{} notation (the canonical form)
+2. Convert the original expression to its canonical mixed-bracket [()]{{}} representation.
+  It must match the original in its foundational structure.
 3. Apply axioms iteratively until no more reductions are possible
 4. Determine if each reduces to marked (structure remains) or unmarked (void)
 
