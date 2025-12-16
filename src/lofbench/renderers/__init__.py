@@ -10,7 +10,10 @@ from typing import Any
 
 from .base import FormRenderer, RenderedForm
 from .canonical import CanonicalConfig, CanonicalRenderer
+from .nested_list import NestedListConfig, NestedListRenderer
 from .noisy_parens import BRACKET_PAIRS, NoisyParensConfig, NoisyParensRenderer
+from .sexpr import PRESETS as SEXPR_PRESETS
+from .sexpr import SExprConfig, SExprRenderer
 from .svg_circle_renderer import SVGCircleConfig, SVGCircleRenderer
 
 __all__ = [
@@ -23,6 +26,11 @@ __all__ = [
     "NoisyParensRenderer",
     "NoisyParensConfig",
     "BRACKET_PAIRS",
+    "NestedListRenderer",
+    "NestedListConfig",
+    "SExprRenderer",
+    "SExprConfig",
+    "SEXPR_PRESETS",
     "get_renderer",
     "register_renderer",
     "list_renderers",
@@ -34,6 +42,8 @@ _RENDERER_REGISTRY: dict[str, type[FormRenderer]] = {
     "canonical": CanonicalRenderer,
     "noisy_parens": NoisyParensRenderer,
     "circle": SVGCircleRenderer,
+    "nested_list": NestedListRenderer,
+    "sexpr": SExprRenderer,
 }
 
 

@@ -277,6 +277,143 @@ for expr in expressions:
     print(f"  {expr:15} → {result.rendered}")
 #+end_src
 
+#+RESULTS:
+: 
+: === Mismatched Bracket Mode ===
+: (Opening and closing chosen independently)
+: 
+:   ()              → (⟩
+:   (())            → [〈⟩]
+:   ()()            → (〉「」
+:   ((())())        → 〈〈(}}〈」〉
+
+** Nested List Rendering
+
+#+begin_src python
+from lofbench.renderers import get_renderer
+
+nested = get_renderer("nested_list")
+
+expressions = [
+    "()",
+    "(())",
+    "()()",
+    "((())())",
+    "(())(())",
+]
+
+print("\n=== Nested List Rendering ===")
+print("(JSON array representation)\n")
+
+for expr in expressions:
+    result = nested.render(expr)
+    print(f"  {expr:15} → {result.rendered}")
+#+end_src
+
+#+RESULTS:
+: 
+: === Nested List Rendering ===
+: (JSON array representation)
+: 
+:   ()              → [[]]
+:   (())            → [[[]]]
+:   ()()            → [[], []]
+:   ((())())        → [[[[]], []]]
+:   (())(())        → [[[]], [[]]]
+
+** S-Expression Rendering
+
+#+begin_src python
+from lofbench.renderers import get_renderer, SEXPR_PRESETS
+
+expressions = [
+    "()",
+    "(())",
+    "()()",
+    "((())())",
+]
+
+# Default preset (x)
+print("\n=== S-Expression Rendering ===")
+print("\nDefault preset (symbol='x'):")
+sexpr = get_renderer("sexpr")
+for expr in expressions:
+    result = sexpr.render(expr)
+    print(f"  {expr:15} → {result.rendered}")
+
+# Lisp preset
+print("\nLisp preset (symbol='quote'):")
+sexpr_lisp = get_renderer("sexpr", preset="lisp")
+for expr in expressions:
+    result = sexpr_lisp.render(expr)
+    print(f"  {expr:15} → {result.rendered}")
+
+# Rust preset
+print("\nRust preset (symbol='Box::new'):")
+sexpr_rust = get_renderer("sexpr", preset="rust")
+for expr in expressions:
+    result = sexpr_rust.render(expr)
+    print(f"  {expr:15} → {result.rendered}")
+
+# Custom symbol
+print("\nCustom symbol ('mark'):")
+sexpr_mark = get_renderer("sexpr", symbol="mark")
+for expr in expressions:
+    result = sexpr_mark.render(expr)
+    print(f"  {expr:15} → {result.rendered}")
+#+end_src
+
+#+RESULTS:
+#+begin_example
+
+=== S-Expression Rendering ===
+
+Default preset (symbol='x'):
+  ()              → (x)
+  (())            → (x (x))
+  ()()            → (x) (x)
+  ((())())        → (x (x (x)) (x))
+
+Lisp preset (symbol='quote'):
+  ()              → (quote)
+  (())            → (quote (quote))
+  ()()            → (quote) (quote)
+  ((())())        → (quote (quote (quote)) (quote))
+
+Rust preset (symbol='Box::new'):
+  ()              → (Box::new)
+  (())            → (Box::new (Box::new))
+  ()()            → (Box::new), (Box::new)
+  ((())())        → (Box::new (Box::new (Box::new)), (Box::new))
+
+Custom symbol ('mark'):
+  ()              → (mark)
+  (())            → (mark (mark))
+  ()()            → (mark) (mark)
+  ((())())        → (mark (mark (mark)) (mark))
+#+end_example
+
+*** Available S-Expression Presets
+
+#+begin_src python
+from lofbench.renderers import SEXPR_PRESETS
+
+print("=== Available S-Expression Presets ===\n")
+for name, config in SEXPR_PRESETS.items():
+    print(f"{name:10}: symbol='{config['symbol']}', delims='{config['open']}...{config['close']}', sep='{config['separator']}'")
+#+end_src
+
+#+RESULTS:
+: === Available S-Expression Presets ===
+: 
+: default   : symbol='x', delims='(...)', sep=' '
+: lisp      : symbol='quote', delims='(...)', sep=' '
+: scheme    : symbol='cons', delims='(...)', sep=' '
+: python    : symbol='fn', delims='(...)', sep=', '
+: rust      : symbol='Box::new', delims='(...)', sep=', '
+: java      : symbol='new Node', delims='(...)', sep=', '
+: haskell   : symbol='Node', delims=' ...', sep=' '
+
 ** Visual Circle Rendering
 
 #+begin_src python
@@ -327,6 +464,20 @@ for i, expr in enumerate(simple_expressions, 1):
 
 print(f"\nSaved SVGs to: {output_dir}/")
 #+end_src
+
+#+RESULTS:
+#+begin_example
+=== SVG Circle Rendering ===
+
+Generating sample SVGs...
+
+()              → simple_1_outline.svg / simple_1_filled.svg
+(())            → simple_2_outline.svg / simple_2_filled.svg
+()()            → simple_3_outline.svg / simple_3_filled.svg
+((())())        → simple_4_outline.svg / simple_4_filled.svg
+
+Saved SVGs to: feedback/
+#+end_example
 
 *** View Sample SVGs
 
