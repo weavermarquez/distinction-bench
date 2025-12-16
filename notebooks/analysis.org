@@ -30,6 +30,12 @@ print(f"Project root: {project_root}")
 print(f"Log directory: {project_root / 'logs'}")
 #+end_src
 
+#+RESULTS:
+: Setup complete.
+: Working directory: /var/home/kwalerie/Documents/org/30-fractal/distinction-bench/notebooks
+: Project root: /var/home/kwalerie/Documents/org/30-fractal/distinction-bench
+: Log directory: /var/home/kwalerie/Documents/org/30-fractal/distinction-bench/logs
+
 * Load Evaluation Logs
 
 ** List Available Logs
@@ -52,6 +58,23 @@ if log_paths:
 else:
     print("No logs found. Run some evaluations first!")
 #+end_src
+
+#+RESULTS:
+#+begin_example
+Found 30 evaluation logs
+
+Most recent logs:
+  2025-12-15T20-34-07+00-00_composite-lof-task_jut2N5Zm5MqF6ncXE2NLTh.eval' type='file' size=83467 mtime=1765830879929.4504 task='composite-lof-task' task_id='jut2N5Zm5MqF6ncXE2NLTh' suffix=None
+  2025-12-15T19-59-39+00-00_single-lof-task_7D79W9HFN2ZtKRiEDnHPk3.eval' type='file' size=502710 mtime=1765828927149.5789 task='single-lof-task' task_id='7D79W9HFN2ZtKRiEDnHPk3' suffix=None
+  2025-12-15T19-44-26+00-00_single-lof-task_2TLQux8Mxm9xCgsSMHhfEG.eval' type='file' size=3419 mtime=1765827871796.0745 task='single-lof-task' task_id='2TLQux8Mxm9xCgsSMHhfEG' suffix=None
+  2025-12-15T19-16-13+00-00_composite-lof-task_PzDKzXoAhbNqXck3toRiLj.eval' type='file' size=65725 mtime=1765826194306.9973 task='composite-lof-task' task_id='PzDKzXoAhbNqXck3toRiLj' suffix=None
+  2025-12-15T19-13-58+00-00_composite-lof-task_6wa6YbyaHBSWaLSs5SUqg9.eval' type='file' size=59456 mtime=1765826042644.2852 task='composite-lof-task' task_id='6wa6YbyaHBSWaLSs5SUqg9' suffix=None
+  2025-12-15T19-13-51+00-00_composite-lof-task_JThQxq6Hc8AR8cXgg6G7Lj.eval' type='file' size=3031 mtime=1765826033310.1045 task='composite-lof-task' task_id='JThQxq6Hc8AR8cXgg6G7Lj' suffix=None
+  2025-12-15T18-54-08+00-00_composite-lof-task_cUGwfi77g8TaP2nMGW9A7j.eval' type='file' size=563260 mtime=1765825004084.0803 task='composite-lof-task' task_id='cUGwfi77g8TaP2nMGW9A7j' suffix=None
+  2025-12-15T18-51-52+00-00_single-lof-task_ifQKGvv8hLQ3SaL6AFAB27.eval' type='file' size=52876 mtime=1765824734877.984 task='single-lof-task' task_id='ifQKGvv8hLQ3SaL6AFAB27' suffix=None
+  2025-12-15T18-16-04+00-00_single-lof-task_gKrKMKAmTFA8uDqTqkcQmw.eval' type='file' size=52340 mtime=1765822584128.2896 task='single-lof-task' task_id='gKrKMKAmTFA8uDqTqkcQmw' suffix=None
+  2025-12-15T18-06-27+00-00_single-lof-task_WJ8d7dCMEKohtz9s26pidR.eval' type='file' size=451586 mtime=1765822068236.5298 task='single-lof-task' task_id='WJ8d7dCMEKohtz9s26pidR' suffix=None
+#+end_example
 
 ** Quick Log Summary
 
@@ -85,6 +108,22 @@ else:
     print("No logs to summarize")
 #+end_src
 
+#+RESULTS:
+#+begin_example
+=== Log Summary ===
+
+By Task:
+  composite_lof_task: 24
+  single_lof_task: 6
+
+By Model:
+  anthropic/claude-opus-4-5-20251101: 14
+  openai/gpt-5.2: 7
+  anthropic/claude-sonnet-4-20250514: 5
+  google/gemini-3-pro-preview: 2
+  anthropic/claude-sonnet-4-5-20250929: 2
+#+end_example
+
 * Single Task Analysis
 
 ** Analyze Most Recent Single Task
@@ -107,8 +146,15 @@ else:
     print(f"Samples: {len(log.samples)}")
     print(f"Date: {log.eval.created}")
 
+    # Helper to get score value from dict
+    def get_score_value(sample):
+        if not sample.scores:
+            return None
+        # scores is a dict, get first scorer's value
+        return list(sample.scores.values())[0].value if sample.scores else None
+
     # Overall accuracy
-    correct = sum(1 for s in log.samples if s.scores and s.scores[0].value == "C")
+    correct = sum(1 for s in log.samples if get_score_value(s) == "C")
     total = len(log.samples)
     print(f"\nOverall Accuracy: {100*correct/total:.1f}% ({correct}/{total})")
 
@@ -117,7 +163,7 @@ else:
     for s in log.samples:
         diff = s.metadata.get("difficulty", "unknown")
         by_diff[diff]["total"] += 1
-        if s.scores and s.scores[0].value == "C":
+        if get_score_value(s) == "C":
             by_diff[diff]["correct"] += 1
 
     print("\nAccuracy by Difficulty:")
@@ -132,7 +178,7 @@ else:
     for s in log.samples:
         target = s.target
         by_target[target]["total"] += 1
-        if s.scores and s.scores[0].value == "C":
+        if get_score_value(s) == "C":
             by_target[target]["correct"] += 1
 
     print("\nAccuracy by Target:")
@@ -142,6 +188,12 @@ else:
         print(f"  {target:10}: {acc:5.1f}% ({d['correct']}/{d['total']})")
 #+end_src
 
+#+RESULTS:
+: === single_lof_task ===
+: Model: anthropic/claude-sonnet-4-20250514
+: Samples: 100
+: Date: 2025-12-15T18:06:27+00:00
+
 ** Single Task Error Analysis
 
 #+begin_src python
@@ -150,8 +202,15 @@ from inspect_ai.log import read_eval_log
 if single_logs:
     log = read_eval_log(single_logs[-1])
 
+    # Helper to get score
+    def get_score(sample):
+        if not sample.scores:
+            return None, None
+        score_obj = list(sample.scores.values())[0]
+        return score_obj.value, score_obj.answer
+
     # Find incorrect samples
-    errors = [s for s in log.samples if s.scores and s.scores[0].value != "C"]
+    errors = [s for s in log.samples if get_score(s)[0] != "C"]
 
     print(f"=== Error Analysis ===")
     print(f"Total errors: {len(errors)}/{len(log.samples)}\n")
@@ -160,7 +219,7 @@ if single_logs:
         print("Sample errors:\n")
         for i, s in enumerate(errors[:10], 1):
             input_expr = s.input[0].text if hasattr(s.input[0], 'text') else str(s.input[0])
-            answer = s.scores[0].answer if s.scores else "N/A"
+            _, answer = get_score(s)
             print(f"{i}. Input: {input_expr}")
             print(f"   Expected: {s.target}")
             print(f"   Got: {answer}")
@@ -170,6 +229,8 @@ if single_logs:
         print(f"Too many errors to display ({len(errors)} total)")
         print("Consider filtering by difficulty or target")
 #+end_src
+
+#+RESULTS:
 
 * Composite Task Analysis
 
@@ -192,17 +253,23 @@ else:
     print(f"Groups: {len(log.samples)}")
     print(f"Date: {log.eval.created}")
 
+    # Helper to get score value
+    def get_score_value(sample):
+        if not sample.scores:
+            return None
+        return list(sample.scores.values())[0].value
+
     # Aggregate metrics
     per_item_acc = []
     all_correct = []
     count_match = []
 
     for s in log.samples:
-        if s.scores and isinstance(s.scores[0].value, dict):
-            v = s.scores[0].value
-            per_item_acc.append(v.get("per_item_accuracy", 0))
-            all_correct.append(v.get("all_correct", 0))
-            count_match.append(v.get("count_match", 0))
+        score_val = get_score_value(s)
+        if score_val and isinstance(score_val, dict):
+            per_item_acc.append(score_val.get("per_item_accuracy", 0))
+            all_correct.append(score_val.get("all_correct", 0))
+            count_match.append(score_val.get("count_match", 0))
 
     n = len(per_item_acc)
     if n > 0:
@@ -227,8 +294,9 @@ else:
         if count not in by_count:
             by_count[count] = {"correct": 0, "total": 0}
         by_count[count]["total"] += 1
-        if s.scores and isinstance(s.scores[0].value, dict):
-            if s.scores[0].value.get("all_correct", 0) == 1:
+        score_val = get_score_value(s)
+        if score_val and isinstance(score_val, dict):
+            if score_val.get("all_correct", 0) == 1:
                 by_count[count]["correct"] += 1
 
     for k in sorted(by_count.keys()):
@@ -236,6 +304,12 @@ else:
         acc = 100 * d["correct"] / d["total"] if d["total"] > 0 else 0
         print(f"  {k} marked: {acc:5.1f}% ({d['correct']}/{d['total']})")
 #+end_src
+
+#+RESULTS:
+: === composite_lof_task ===
+: Model: anthropic/claude-sonnet-4-20250514
+: Groups: 100
+: Date: 2025-12-15T18:54:08+00:00
 
 ** Composite Task: Item-Level Analysis
 
@@ -245,21 +319,28 @@ from inspect_ai.log import read_eval_log
 if composite_logs:
     log = read_eval_log(composite_logs[-1])
 
+    # Helper to get score value
+    def get_score_value(sample):
+        if not sample.scores:
+            return None
+        return list(sample.scores.values())[0].value
+
     # Collect all individual items from all groups
     total_items = 0
     correct_items = 0
 
     for sample in log.samples:
-        if sample.scores and isinstance(sample.scores[0].value, dict):
-            score_dict = sample.scores[0].value
-            items = score_dict.get("items", [])
+        score_val = get_score_value(sample)
+        if score_val and isinstance(score_val, dict):
+            items = score_val.get("items", [])
             total_items += len(items)
             correct_items += sum(1 for item in items if item.get("correct", False))
 
     print(f"=== Item-Level Statistics ===")
     print(f"Total items: {total_items}")
     print(f"Correct: {correct_items}")
-    print(f"Accuracy: {100*correct_items/total_items:.1f}%")
+    if total_items > 0:
+        print(f"Accuracy: {100*correct_items/total_items:.1f}%")
 #+end_src
 
 * Model Comparison
@@ -283,13 +364,19 @@ for path in log_paths:
 if by_model:
     print("=== Single Task: Model Comparison ===\n")
 
+    # Helper to get score value
+    def get_score_value(sample):
+        if not sample.scores:
+            return None
+        return list(sample.scores.values())[0].value
+
     results = []
     for model in sorted(by_model.keys()):
         logs = by_model[model]
         # Use most recent log for each model
         log = logs[-1]
 
-        correct = sum(1 for s in log.samples if s.scores and s.scores[0].value == "C")
+        correct = sum(1 for s in log.samples if get_score_value(s) == "C")
         total = len(log.samples)
         acc = 100 * correct / total if total > 0 else 0
 
@@ -325,6 +412,12 @@ for path in log_paths:
 if by_model:
     print("=== Composite Task: Model Comparison ===\n")
 
+    # Helper to get score value
+    def get_score_value(sample):
+        if not sample.scores:
+            return None
+        return list(sample.scores.values())[0].value
+
     results = []
     for model in sorted(by_model.keys()):
         logs = by_model[model]
@@ -334,10 +427,10 @@ if by_model:
         per_item_acc = []
         all_correct = []
         for s in log.samples:
-            if s.scores and isinstance(s.scores[0].value, dict):
-                v = s.scores[0].value
-                per_item_acc.append(v.get("per_item_accuracy", 0))
-                all_correct.append(v.get("all_correct", 0))
+            score_val = get_score_value(s)
+            if score_val and isinstance(score_val, dict):
+                per_item_acc.append(score_val.get("per_item_accuracy", 0))
+                all_correct.append(score_val.get("all_correct", 0))
 
         n = len(per_item_acc)
         if n > 0:
@@ -368,6 +461,8 @@ from lofbench.analysis import print_report
 
 print_report(str(project_root / "logs"))
 #+end_src
+
+#+RESULTS:
 
 ** Custom Filtering
 
@@ -402,6 +497,13 @@ from inspect_ai.log import read_eval_log
 from pathlib import Path
 import csv
 
+# Helper to get score
+def get_score(sample):
+    if not sample.scores:
+        return None, None
+    score_obj = list(sample.scores.values())[0]
+    return score_obj.value, score_obj.answer
+
 # Collect all single task samples
 rows = []
 for path in log_paths:
@@ -411,14 +513,15 @@ for path in log_paths:
             continue
 
         for s in log.samples:
+            score_val, answer = get_score(s)
             rows.append({
                 "model": log.eval.model,
                 "task": log.eval.task,
                 "date": str(log.eval.created),
                 "sample_id": s.id,
                 "target": s.target,
-                "correct": s.scores[0].value == "C" if s.scores else None,
-                "answer": s.scores[0].answer if s.scores else None,
+                "correct": score_val == "C" if score_val else None,
+                "answer": answer,
                 "difficulty": s.metadata.get("difficulty"),
                 "depth": s.metadata.get("depth"),
                 "steps": s.metadata.get("steps"),
@@ -444,6 +547,12 @@ from inspect_ai.log import read_eval_log
 from pathlib import Path
 import csv
 
+# Helper to get score value
+def get_score_value(sample):
+    if not sample.scores:
+        return None
+    return list(sample.scores.values())[0].value
+
 # Collect all composite task samples
 rows = []
 for path in log_paths:
@@ -453,18 +562,18 @@ for path in log_paths:
             continue
 
         for s in log.samples:
-            if s.scores and isinstance(s.scores[0].value, dict):
-                v = s.scores[0].value
+            score_val = get_score_value(s)
+            if score_val and isinstance(score_val, dict):
                 rows.append({
                     "model": log.eval.model,
                     "task": log.eval.task,
                     "date": str(log.eval.created),
                     "sample_id": s.id,
                     "count": s.metadata.get("count"),
-                    "per_item_accuracy": v.get("per_item_accuracy", 0),
-                    "all_correct": v.get("all_correct", 0),
-                    "count_match": v.get("count_match", 0),
-                    "group_size": len(v.get("items", [])),
+                    "per_item_accuracy": score_val.get("per_item_accuracy", 0),
+                    "all_correct": score_val.get("all_correct", 0),
+                    "count_match": score_val.get("count_match", 0),
+                    "group_size": len(score_val.get("items", [])),
                 })
     except Exception as e:
         print(f"Warning: Error reading {path}: {e}")
@@ -487,6 +596,13 @@ from inspect_ai.log import read_eval_log
 from pathlib import Path
 import json
 
+# Helper to get score
+def get_score(sample):
+    if not sample.scores:
+        return None, None
+    score_obj = list(sample.scores.values())[0]
+    return score_obj.value, score_obj.answer
+
 # Export full details for last N logs
 all_results = []
 for path in log_paths[-10:]:  # Last 10 logs
@@ -501,8 +617,8 @@ for path in log_paths[-10:]:  # Last 10 logs
                 {
                     "id": s.id,
                     "target": s.target,
-                    "score": s.scores[0].value if s.scores else None,
-                    "answer": s.scores[0].answer if s.scores else None,
+                    "score": get_score(s)[0],
+                    "answer": get_score(s)[1],
                     "metadata": s.metadata,
                 }
                 for s in log.samples

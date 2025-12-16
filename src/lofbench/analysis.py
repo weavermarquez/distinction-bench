@@ -28,10 +28,11 @@ def extract_composite_results(log: EvalLog) -> list[dict[str, Any]]:
     for sample in log.samples or []:
         metadata = sample.metadata or {}
 
-        # Get score values
+        # Get score values (scores is a dict, not a list)
         score_dict = {}
         if sample.scores:
-            score = sample.scores[0]
+            # Get first scorer's value from dict
+            score = list(sample.scores.values())[0]
             if isinstance(score.value, dict):
                 score_dict = score.value
 
@@ -52,15 +53,18 @@ def extract_composite_results(log: EvalLog) -> list[dict[str, Any]]:
 
 def _extract_predicted_count(sample) -> int:
     """Extract predicted count from sample scores."""
-    if sample.scores and sample.scores[0].answer:
-        try:
-            # Parse the answer string to get total_marked
-            import ast
-            answer = ast.literal_eval(sample.scores[0].answer)
-            if isinstance(answer, dict):
-                return answer.get("total_marked", -1)
-        except (ValueError, SyntaxError):
-            pass
+    if sample.scores:
+        # Get first scorer from dict
+        score = list(sample.scores.values())[0]
+        if score.answer:
+            try:
+                # Parse the answer string to get total_marked
+                import ast
+                answer = ast.literal_eval(score.answer)
+                if isinstance(answer, dict):
+                    return answer.get("total_marked", -1)
+            except (ValueError, SyntaxError):
+                pass
     return -1
 
 
@@ -197,7 +201,11 @@ def analyze_single(logs: list[EvalLog]) -> str:
         if "single" in (log.eval.task or "") and "composite" not in (log.eval.task or ""):
             for sample in log.samples or []:
                 metadata = sample.metadata or {}
-                correct = sample.scores[0].value == "C" if sample.scores else False
+                # Get score from dict (not list)
+                correct = False
+                if sample.scores:
+                    score = list(sample.scores.values())[0]
+                    correct = score.value == "C"
                 all_results.append({
                     "model": log.eval.model,
                     "difficulty": metadata.get("difficulty", "unknown"),
