@@ -30,12 +30,6 @@ print(f"Project root: {project_root}")
 print(f"Log directory: {project_root / 'logs'}")
 #+end_src
 
-#+RESULTS:
-: Setup complete.
-: Working directory: /var/home/kwalerie/Documents/org/30-fractal/distinction-bench/notebooks
-: Project root: /var/home/kwalerie/Documents/org/30-fractal/distinction-bench
-: Log directory: /var/home/kwalerie/Documents/org/30-fractal/distinction-bench/logs
-
 * Load Evaluation Logs
 
 ** List Available Logs
@@ -266,7 +260,7 @@ composite_logs = [p for p in log_paths if "composite" in str(p)]
 if not composite_logs:
     print("No composite task logs found")
 else:
-    log = read_eval_log(composite_logs[0])
+    log = read_eval_log(composite_logs[12])
 
     print(f"=== {log.eval.task} ===")
     print(f"Model: {log.eval.model}")
@@ -305,14 +299,13 @@ else:
 
 #+RESULTS:
 : === composite_lof_task ===
-: Model: google/gemini-3-pro-preview
-: Groups: 90
-: Date: 2025-12-16T04:02:04+00:00
+: Model: anthropic/claude-opus-4-5-20251101
+: Groups: 15
+: Date: 2025-12-15T23:19:22+00:00
 : 
 : Metrics:
-:   Per-item accuracy: 88.3%
-:   All-correct:       66.7% (60/90)
-:   Count match:       0.0%
+:   Per-item accuracy:    71.7%
+:   All-correct:          40.0% (6/15)
 
 ** Composite Task: Item-Level Analysis
 
@@ -400,6 +393,15 @@ if by_model:
 else:
     print("No single task results to compare")
 #+end_src
+
+#+RESULTS:
+: === Single Task: Model Comparison ===
+: 
+: anthropic/claude-sonnet-4-20250514        55.0% ██████████████████████
+:                                          (55/100)
+: 
+: anthropic/claude-opus-4-5-20251101         0.0% 
+:                                          (0/0)
 
 ** Compare All Models on Composite Task
 

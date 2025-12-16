@@ -11,12 +11,15 @@ from typing import Any
 from .base import FormRenderer, RenderedForm
 from .canonical import CanonicalConfig, CanonicalRenderer
 from .noisy_parens import BRACKET_PAIRS, NoisyParensConfig, NoisyParensRenderer
+from .svg_circle_renderer import SVGCircleConfig, SVGCircleRenderer
 
 __all__ = [
     "FormRenderer",
     "RenderedForm",
     "CanonicalRenderer",
     "CanonicalConfig",
+    "SVGCircleRenderer",
+    "SVGCircleConfig",
     "NoisyParensRenderer",
     "NoisyParensConfig",
     "BRACKET_PAIRS",
@@ -30,6 +33,7 @@ __all__ = [
 _RENDERER_REGISTRY: dict[str, type[FormRenderer]] = {
     "canonical": CanonicalRenderer,
     "noisy_parens": NoisyParensRenderer,
+    "circle": SVGCircleRenderer,
 }
 
 
