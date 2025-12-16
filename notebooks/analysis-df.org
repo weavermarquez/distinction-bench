@@ -1,0 +1,191 @@
+#+title: Evaluation Log Analysis
+#+date: <2025-12-15 Sun>
+#+author: Valerie Kim
+#+property: header-args:python :session analysis :results output :python "../.venv/bin/python"
+
+* Introduction
+
+This notebook analyzes evaluation results from running the distinction benchmark
+on various models. It loads logs, computes metrics, compares models, and exports
+results for further analysis.
+
+* Setup
+
+#+begin_src python
+import os
+import sys
+from pathlib import Path
+
+# Navigate to project root for correct paths
+nb_dir = Path.cwd()
+project_root = nb_dir.parent
+os.chdir(nb_dir)
+
+# Add src to path
+sys.path.insert(0, str(project_root / "src"))
+
+print("Setup complete.")
+print(f"Working directory: {Path.cwd()}")
+print(f"Project root: {project_root}")
+print(f"Log directory: {project_root / 'logs'}")
+#+end_src
+
+#+RESULTS:
+: Setup complete.
+: Working directory: /var/home/kwalerie/Documents/org/30-fractal/distinction-bench/notebooks
+: Project root: /var/home/kwalerie/Documents/org/30-fractal/distinction-bench
+: Log directory: /var/home/kwalerie/Documents/org/30-fractal/distinction-bench/logs
+
+* Load Evaluation Logs
+
+#+begin_src python
+from inspect_ai.log import list_eval_logs
+from pathlib import Path
+
+log_dir = Path("../logs")
+log_paths = list(list_eval_logs(str(log_dir)))
+
+print(f"Found {len(log_paths)} evaluation logs\n")
+
+if log_paths:
+    print("Most recent logs:")
+    for log_info in log_paths[:10]:
+        # Extract just the filename for display
+        name = Path(str(log_info)).name if hasattr(log_info, '__str__') else str(log_info.name)
+        print(f"  {name}")
+else:
+    print("No logs found. Run some evaluations first!")
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Found 31 evaluation logs
+
+Most recent logs:
+  2025-12-16T02-12-05+00-00_composite-lof-task_e75qLREJM4Wg8V9Lyyh4dU.eval' type='file' size=4035 mtime=1765864291263.8398 task='composite-lof-task' task_id='e75qLREJM4Wg8V9Lyyh4dU' suffix=None
+  2025-12-16T01-49-31+00-00_composite-lof-task_QYMY25BtMmHVeHQ9VWFiC3.eval' type='file' size=47238 mtime=1765863370093.027 task='composite-lof-task' task_id='QYMY25BtMmHVeHQ9VWFiC3' suffix=None
+  2025-12-16T01-43-50+00-00_composite-lof-task_MSnrYp76447Lbe8fD64VZs.eval' type='file' size=613590073 mtime=1765863370093.0232 task='composite-lof-task' task_id='MSnrYp76447Lbe8fD64VZs' suffix=None
+  2025-12-16T01-41-48+00-00_composite-lof-task_PXDDRrkeNMCzdhBThg2qDs.eval' type='file' size=9353 mtime=1765863370093.0195 task='composite-lof-task' task_id='PXDDRrkeNMCzdhBThg2qDs' suffix=None
+  2025-12-16T01-37-22+00-00_composite-lof-task_P2i25rzfcGzpBTkroQUs2x.eval' type='file' size=52146 mtime=1765863370093.0151 task='composite-lof-task' task_id='P2i25rzfcGzpBTkroQUs2x' suffix=None
+  2025-12-16T01-35-15+00-00_composite-lof-task_h4NFeSWFfqPYKshTUiajE3.eval' type='file' size=49603 mtime=1765863370093.0107 task='composite-lof-task' task_id='h4NFeSWFfqPYKshTUiajE3' suffix=None
+  2025-12-16T00-36-57+00-00_composite-lof-task_Y2VeJxvZZuER2C7u9LRSgx.eval' type='file' size=7731540 mtime=1765863370093.006 task='composite-lof-task' task_id='Y2VeJxvZZuER2C7u9LRSgx' suffix=None
+  2025-12-16T00-34-30+00-00_composite-lof-task_3x9hqVxkznFYxwiFK9Yj3N.eval' type='file' size=194235 mtime=1765863370093.002 task='composite-lof-task' task_id='3x9hqVxkznFYxwiFK9Yj3N' suffix=None
+  2025-12-16T00-26-03+00-00_composite-lof-task_cdqvjYE5bHa9MzbbSoLB2d.eval' type='file' size=862844 mtime=1765863370092.9966 task='composite-lof-task' task_id='cdqvjYE5bHa9MzbbSoLB2d' suffix=None
+  2025-12-16T00-19-14+00-00_composite-lof-task_LtNDPzwiE5rinoD7ioR5zP.eval' type='file' size=27945 mtime=1765863370092.986 task='composite-lof-task' task_id='LtNDPzwiE5rinoD7ioR5zP' suffix=None
+#+end_example
+
+* Analyze Most Recent Composite Task
+
+#+begin_src python
+from inspect_ai.log import read_eval_log
+from inspect_ai.analysis import samples_df
+from collections import defaultdict
+import ast
+
+# Find composite task logs
+composite_logs = [p for p in log_paths if "composite" in str(p)]
+
+if not composite_logs:
+    print("No composite task logs found")
+else:
+    # Select which log to analyze (change index as needed)
+    log_index = 6
+    log = read_eval_log(composite_logs[log_index])
+
+    print(f"=== {log.eval.task} ===")
+    print(f"Model: {log.eval.model}")
+    print(f"Groups: {len(log.samples)}")
+    print(f"Date: {log.eval.created}")
+
+    # Use dataframe for easier analysis
+    df = samples_df([composite_logs[log_index]])
+
+    print(f"\nDataFrame: {len(df)} rows")
+
+    # Find the score column - it may be a dict column or expanded
+    score_cols = [c for c in df.columns if c.startswith("score")]
+
+    # Check if scores are expanded or in a single dict column
+    if "score_lof_composite_scorer" in df.columns:
+        # Score is a dict column - extract the metrics
+        score_col = "score_lof_composite_scorer"
+        df["per_item_accuracy"] = df[score_col].apply(
+            lambda x: x.get("per_item_accuracy", 0) if isinstance(x, dict) else 0
+        )
+        df["all_correct"] = df[score_col].apply(
+            lambda x: x.get("all_correct", 0) if isinstance(x, dict) else 0
+        )
+        df["structure_accuracy"] = df[score_col].apply(
+            lambda x: x.get("structure_accuracy") if isinstance(x, dict) else None
+        )
+        per_item_col = "per_item_accuracy"
+        all_correct_col = "all_correct"
+        structure_col = "structure_accuracy"
+    else:
+        # Try expanded column names
+        per_item_col = next((c for c in score_cols if "per_item_accuracy" in c), None)
+        all_correct_col = next((c for c in score_cols if "all_correct" in c), None)
+        structure_col = next((c for c in score_cols if "structure_accuracy" in c), None)
+
+    if per_item_col and per_item_col in df.columns:
+        n = len(df)
+        print(f"\n=== Overall Metrics ===")
+        print(f"  Per-item accuracy:    {100*df[per_item_col].mean():.1f}%")
+        if all_correct_col:
+            print(f"  All-correct:          {100*df[all_correct_col].mean():.1f}% ({int(df[all_correct_col].sum())}/{n})")
+        if structure_col and df[structure_col].notna().any():
+            print(f"  Structure accuracy:   {100*df[structure_col].dropna().mean():.1f}%")
+
+        # Breakdown by difficulty
+        if "metadata_difficulty" in df.columns and per_item_col:
+            print(f"\n=== Accuracy by Difficulty ===")
+
+            for diff in sorted(df["metadata_difficulty"].unique()):
+                d = df[df["metadata_difficulty"] == diff]
+                per_item = d[per_item_col].mean() * 100
+                all_corr = d[all_correct_col].mean() * 100 if all_correct_col else 0
+                n_corr = int(d[all_correct_col].sum()) if all_correct_col else 0
+                n_total = len(d)
+                print(f"  {diff:12}: {per_item:5.1f}% per-item | {all_corr:5.1f}% all-correct ({n_corr}/{n_total})")
+
+        # Breakdown by target (marked vs unmarked) at the item level
+        print(f"\n=== Accuracy by Target (Item-Level) ===")
+
+        # Use the log object directly to access score.answer
+        marked_correct = 0
+        marked_total = 0
+        unmarked_correct = 0
+        unmarked_total = 0
+
+        for sample in log.samples:
+            targets = sample.metadata.get("targets", [])
+            # Get the answer from the score object
+            if sample.scores:
+                score_obj = list(sample.scores.values())[0]
+                answer = score_obj.answer if hasattr(score_obj, 'answer') else ""
+
+                try:
+                    if answer and isinstance(answer, str):
+                        extracted = ast.literal_eval(answer)
+                        results = extracted.get("results", [])
+
+                        for i, target in enumerate(targets):
+                            if i < len(results):
+                                correct = results[i] == target
+                                if target == "marked":
+                                    marked_total += 1
+                                    marked_correct += 1 if correct else 0
+                                else:
+                                    unmarked_total += 1
+                                    unmarked_correct += 1 if correct else 0
+                except (ValueError, SyntaxError):
+                    pass
+
+        if marked_total > 0:
+            print(f"  marked     : {100*marked_correct/marked_total:5.1f}% ({marked_correct}/{marked_total})")
+        if unmarked_total > 0:
+            print(f"  unmarked   : {100*unmarked_correct/unmarked_total:5.1f}% ({unmarked_correct}/{unmarked_total})")
+        if marked_total == 0 and unmarked_total == 0:
+            print("  (Unable to parse item-level results from score.answer)")
+#+end_src
+
