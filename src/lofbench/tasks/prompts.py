@@ -62,18 +62,18 @@ Example: (()) simplifies to nothing
 ## Instructions
 
 1. For each expression, identify the structure of distinctions
-2. Convert to standard mixed-bracket [()]{} notation (the canonical form)
+2. Convert to standard mixed-bracket [()]{{}} notation (the canonical form)
 3. Apply axioms iteratively until no more reductions are possible
 4. Determine if each reduces to marked (structure remains) or unmarked (void)
 
 After working through ALL expressions, provide your final answers in this exact JSON format:
 
 ```json
-{
-  "E1": {"canonical": "([])", "result": "unmarked"},
-  "E2": {"canonical": "(){}", "result": "marked"},
+{{
+  "E1": {{"canonical": "([])", "result": "unmarked"}},
+  "E2": {{"canonical": "(){{}}", "result": "marked"}},
   ...
-}
+}}
 ```
 """
 

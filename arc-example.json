@@ -1,0 +1,110 @@
+[
+  {
+    "attempt_1": {
+      "answer": "<extracted and parsed answer>",
+      "metadata": {
+        "model": "gpt-5.2-2025-12-11",
+        "provider": "openai",
+        "start_timestamp": "2025-12-06T22:50:07.519760+00:00",
+        "end_timestamp": "2025-12-06T22:50:59.728108+00:00",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "user",
+              "content": "<system prompt>"
+            }
+          },
+          {
+            "index": 1,
+            "message": {
+              "role": "assistant",
+              "content": "<list of lists, i guess an answer attempt?>"
+            }
+          }
+        ],
+        "reasoning_summary": null,
+        "kwargs": {
+          "background": true,
+          "reasoning": {
+            "effort": "none"
+          },
+          "max_output_tokens": 196608
+        },
+        "usage": {
+          "prompt_tokens": 5814,
+          "completion_tokens": 2527,
+          "total_tokens": 8341,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "accepted_prediction_tokens": 2527,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost": {
+          "prompt_cost": 0.0101745,
+          "completion_cost": 0.035378,
+          "reasoning_cost": 0.0,
+          "total_cost": 0.045552499999999996
+        },
+        "task_id": "135a2760",
+        "pair_index": 0,
+        "test_id": "gpt-5-2-2025-12-11-thinking-none"
+      },
+      "correct": false
+    },
+    "attempt_2": {
+      "answer": "<extracted answer>",
+      "metadata": {
+        "model": "gpt-5.2-2025-12-11",
+        "provider": "openai",
+        "start_timestamp": "2025-12-06T22:50:59.732558+00:00",
+        "end_timestamp": "2025-12-06T22:51:52.313609+00:00",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "user",
+              "content": "<system prompt>"
+            }
+          },
+          {
+            "index": 1,
+            "message": {
+              "role": "assistant",
+              "content": "<an attempt?>"
+            }
+          }
+        ],
+        "reasoning_summary": null,
+        "kwargs": {
+          "background": true,
+          "reasoning": {
+            "effort": "none"
+          },
+          "max_output_tokens": 196608
+        },
+        "usage": {
+          "prompt_tokens": 5814,
+          "completion_tokens": 2527,
+          "total_tokens": 8341,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "accepted_prediction_tokens": 2527,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "cost": {
+          "prompt_cost": 0.0101745,
+          "completion_cost": 0.035378,
+          "reasoning_cost": 0.0,
+          "total_cost": 0.045552499999999996
+        },
+        "task_id": "135a2760",
+        "pair_index": 0,
+        "test_id": "gpt-5-2-2025-12-11-thinking-none"
+      },
+      "correct": false
+    }
+  }
+]
