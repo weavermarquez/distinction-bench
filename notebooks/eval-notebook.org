@@ -128,23 +128,35 @@ print("  uv run inspect view")
 #+end_src
 
 #+begin_example bash :eval no
-# Claude Opus 4.5
+# Claude Opus 4.5 - Text with noisy brackets
 uv run inspect eval src/lofbench/tasks/composite.py \
 --model anthropic/claude-opus-4-5-20251101 \
---reasoning-tokens 10000 -T n_groups=500
-- T renderer=noisy_parens
+--reasoning-tokens 10000 -T n_groups=500 \
+-T renderer=noisy_parens
+
+# Claude Opus 4.5 - Visual with circles (outline)
+uv run inspect eval src/lofbench/tasks/single.py \
+--model anthropic/claude-opus-4-5-20251101 \
+-T renderer=circle -T render_seed=42
+
+# Claude Opus 4.5 - Visual with alternating fills
+uv run inspect eval src/lofbench/tasks/composite.py \
+--model anthropic/claude-opus-4-5-20251101 \
+-T renderer=circle \
+-T 'renderer_config={"fill_style": "alternating"}' \
+-T render_seed=42
 
 # GPT-5.2
 uv run inspect eval src/lofbench/tasks/single.py \
 --model openai/gpt-5.2 \
 --reasoning-effort high
 
-# Gemini 3.0 Pro
+# Gemini 3.0 Pro - Visual evaluation
 uv run inspect eval src/lofbench/tasks/single.py \
 --model google/gemini-3.0-pro \
---reasoning-tokens 10000
+--reasoning-tokens 10000 \
+-T renderer=circle
 #+end_example
-
 
 * Analyze Results Programmatically
 
@@ -161,6 +173,9 @@ print(f"Found {len(log_paths)} evaluation logs:")
 for path in log_paths[-5:]:  # Show last 5
     print(f"  {Path(path).name}")
 #+end_src
+
+#+RESULTS:
+: Found 0 evaluation logs:
 
 ** Analyze Single Task Results
 
@@ -472,8 +487,8 @@ for expr in expressions:
 #+end_src
 
 #+RESULTS:
-: Available renderers: ['canonical', 'noisy_parens']
-: 
+: Available renderers: ['canonical', 'circle', 'noisy_parens']
+:
 : === Rendering Comparison ===
 :   (())            → canonical: (())            noisy: [()]
 :   ()()            → canonical: ()()            noisy: ⟨⟩⟨⟩
@@ -507,6 +522,206 @@ for expr in expressions:
 :   (())            → (⟨]〉
 :   ()()            → ⟨](〉
 :   ((())())        → 「「〈〉){}〉
+
+** Image Rendering with Circles
+
+#+begin_src python
+from lofbench.renderers import SVGCircleRenderer, SVGCircleConfig
+import random
+import urllib.parse
+from pathlib import Path
+
+# Create output directory
+output_dir = Path("feedback")
+output_dir.mkdir(exist_ok=True)
+
+# Basic circle renderer (outline only)
+outline_renderer = SVGCircleRenderer(config=SVGCircleConfig(fill_style="none"))
+
+# Alternating fill renderer
+filled_renderer = SVGCircleRenderer(config=SVGCircleConfig(fill_style="alternating"))
+
+expressions = ["(())", "()()", "((())())", "(())(())"]
+
+print("=== SVG Circle Rendering Examples ===\n")
+
+for i, expr in enumerate(expressions):
+    outline_result = outline_renderer.render(expr)
+    filled_result = filled_renderer.render(expr)
+
+    # Decode URL-encoded SVG and save
+    outline_svg = urllib.parse.unquote(
+        outline_result.rendered.replace("data:image/svg+xml;charset=utf-8,", "")
+    )
+    filled_svg = urllib.parse.unquote(
+        filled_result.rendered.replace("data:image/svg+xml;charset=utf-8,", "")
+    )
+
+    outline_path = output_dir / f"circle_outline_{i+1}.svg"
+    filled_path = output_dir / f"circle_filled_{i+1}.svg"
+
+    outline_path.write_text(outline_svg)
+    filled_path.write_text(filled_svg)
+
+    print(f"Expression: {expr}")
+    print(f"  Saved: {outline_path} and {filled_path}\n")
+
+print("View SVG images below in separate blocks")
+#+end_src
+
+#+RESULTS:
+
+*** Outline Examples
+
+Expression: =(())=
+
+#+begin_src python :results file
+"feedback/circle_outline_1.svg"
+#+end_src
+
+#+RESULTS:
+[[file:feedback/circle_outline_1.svg]]
+
+Expression: =()()=
+
+#+begin_src python :results file
+"feedback/circle_outline_2.svg"
+#+end_src
+
+#+RESULTS:
+[[file:feedback/circle_outline_2.svg]]
+
+Expression: =((())())=
+
+#+begin_src python :results file
+"feedback/circle_outline_3.svg"
+#+end_src
+
+#+RESULTS:
+[[file:feedback/circle_outline_3.svg]]
+
+Expression: =(())(())=
+
+#+begin_src python :results file
+"feedback/circle_outline_4.svg"
+#+end_src
+
+#+RESULTS:
+[[file:feedback/circle_outline_4.svg]]
+
+*** Alternating Fill Examples
+
+Expression: =(())=
+
+#+begin_src python :results file
+"feedback/circle_filled_1.svg"
+#+end_src
+
+#+RESULTS:
+[[file:feedback/circle_filled_1.svg]]
+
+Expression: =()()=
+
+#+begin_src python :results file
+"feedback/circle_filled_2.svg"
+#+end_src
+
+#+RESULTS:
+[[file:feedback/circle_filled_2.svg]]
+
+Expression: =((())())=
+
+#+begin_src python :results file
+"feedback/circle_filled_3.svg"
+#+end_src
+
+#+RESULTS:
+[[file:feedback/circle_filled_3.svg]]
+
+Expression: =(())(())=
+
+#+begin_src python :results file
+"feedback/circle_filled_4.svg"
+#+end_src
+
+#+RESULTS:
+[[file:feedback/circle_filled_4.svg]]
+
+* Eval with Image Renderer Examples
+
+** Run Evaluation with Image Renderer
+
+#+begin_src python :async
+import subprocess
+
+# Evaluate with circle renderer (outline mode)
+result = subprocess.run(
+    [
+        "uv", "run", "inspect", "eval",
+        "src/lofbench/tasks/single.py",
+        "--model", "anthropic/claude-sonnet-4-20250514",
+        "-T", "n=10",
+        "-T", "renderer=circle",
+        "-T", "render_seed=42",
+    ],
+    capture_output=True,
+    text=True,
+    cwd=".."
+)
+print(result.stdout)
+if result.stderr:
+    print("STDERR:", result.stderr[:500])
+#+end_src
+
+** Run with Alternating Fill Style
+
+#+begin_src python :async
+import subprocess
+
+# Evaluate with alternating black/white fills
+result = subprocess.run(
+    [
+        "uv", "run", "inspect", "eval",
+        "src/lofbench/tasks/single.py",
+        "--model", "anthropic/claude-sonnet-4-20250514",
+        "-T", "n=10",
+        "-T", "renderer=circle",
+        "-T", 'renderer_config={"fill_style": "alternating"}',
+        "-T", "render_seed=42",
+    ],
+    capture_output=True,
+    text=True,
+    cwd=".."
+)
+print(result.stdout)
+if result.stderr:
+    print("STDERR:", result.stderr[:500])
+#+end_src
+
+** Composite Task with Images
+
+#+begin_src python :async
+import subprocess
+
+# Composite evaluation with circle images
+result = subprocess.run(
+    [
+        "uv", "run", "inspect", "eval",
+        "src/lofbench/tasks/composite.py",
+        "--model", "anthropic/claude-sonnet-4-20250514",
+        "-T", "n_groups=5",
+        "-T", "renderer=circle",
+        "-T", 'renderer_config={"fill_style": "alternating"}',
+        "-T", "render_seed=100",
+    ],
+    capture_output=True,
+    text=True,
+    cwd=".."
+)
+print(result.stdout)
+if result.stderr:
+    print("STDERR:", result.stderr[:500])
+#+end_src
 
 * Export Results
 

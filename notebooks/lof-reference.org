@@ -1,0 +1,599 @@
+#+title: Laws of Form Reference
+#+date: <2025-12-15 Sun>
+#+author: Valerie Kim
+#+property: header-args:python :session lof-ref :results output :python "../.venv/bin/python"
+
+* Introduction
+
+This notebook provides quick examples and reminders of how Laws of Form
+expressions work, including different rendering styles and the core simplification
+axioms.
+
+** The Calculus of Indications
+
+George Spencer-Brown's /Laws of Form/ (1969) introduces a minimal calculus
+based on a single symbol: the /mark/ or /cross/, written as =()=.
+
+The calculus has only two axioms:
+
+| Axiom | Name     | Rule           | Interpretation    |
+|-------+----------+----------------+-------------------|
+| I1    | Calling  | =()()= → =()=      | Condense/Confirm  |
+| I2    | Crossing | =(())= → nothing | Cancel/Compensate |
+
+- *I1 (Calling)*: Multiple adjacent marks condense to a single mark
+- *I2 (Crossing)*: A mark containing only a mark cancels to nothing
+
+Every well-formed expression reduces to exactly one of two values:
+- =()= (marked) — equivalent to TRUE or 1
+- nothing (unmarked) — equivalent to FALSE or 0
+
+* Setup
+
+#+begin_src python
+import os
+import sys
+from pathlib import Path
+
+# Navigate to project root
+nb_dir = Path.cwd()
+project_root = nb_dir.parent
+os.chdir(nb_dir)
+
+# Add src to path
+sys.path.insert(0, str(project_root / "src"))
+
+print("Setup complete.")
+print(f"Working directory: {Path.cwd()}")
+print(f"Project root: {project_root}")
+#+end_src
+
+* Core Simplification Examples
+
+** Basic Axiom Applications
+
+#+begin_src python
+from lofbench.simplify import simplify_parens
+
+examples = [
+    # I2 (Crossing): nested mark cancels
+    "(())",
+    "((()))",
+
+    # I1 (Calling): adjacent marks condense
+    "()()",
+    "()()()",
+
+    # Combined
+    "((())())",
+    "(())(())",
+
+    # More complex
+    "((()()))",
+    "(()())()",
+    "(()(())())",
+]
+
+print("=== Simplification Examples ===\n")
+for expr in examples:
+    result = simplify_parens(expr)
+    result_display = result if result else "∅ (void)"
+    print(f"{expr:20} → {result_display}")
+#+end_src
+
+** Step-by-Step Simplification
+
+#+begin_src python
+from lofbench.core import string_to_form, form_to_string
+from lofbench.simplify import simplify, Step
+
+def show_steps(expr: str):
+    """Show detailed simplification steps for an expression."""
+    form = string_to_form(expr)
+    result, steps = simplify(form, return_steps=True)
+
+    print(f"\nExpression: {expr}")
+    print(f"Steps: {len(steps)}")
+    print()
+
+    current = expr
+    for i, step in enumerate(steps, 1):
+        print(f"  {i}. {current:30} -- {step.axiom.name}")
+        current = form_to_string(step.result)
+
+    final = form_to_string(result) if result else "∅"
+    print(f"  ✓  {final:30} (normal form)")
+
+# Examples showing different patterns
+show_steps("((())())")
+show_steps("(())(())")
+show_steps("(()(())())")
+#+end_src
+
+* Form Representation
+
+** String to Form Conversion
+
+#+begin_src python
+from lofbench.core import string_to_form, form_to_string
+
+print("=== Internal Representation ===\n")
+print("Expressions are stored as nested Python lists:")
+print()
+
+examples = [
+    "()",
+    "(())",
+    "()()",
+    "((())())",
+]
+
+for expr in examples:
+    form = string_to_form(expr)
+    print(f"{expr:15} → {form}")
+#+end_src
+
+** Form Properties
+
+#+begin_src python
+from lofbench.core import string_to_form, depth, size
+
+print("\n=== Form Metrics ===\n")
+
+examples = [
+    "()",
+    "(())",
+    "()()()",
+    "((())())",
+    "(()(())())",
+]
+
+print(f"{'Expression':<20} {'Depth':<8} {'Size':<8}")
+print("-" * 36)
+
+for expr in examples:
+    form = string_to_form(expr)
+    d = depth(form)
+    s = size(form)
+    print(f"{expr:<20} {d:<8} {s:<8}")
+#+end_src
+
+* Renderer Examples
+
+** Available Renderers
+
+#+begin_src python
+from lofbench.renderers import list_renderers
+
+print(f"Available renderers: {list_renderers()}")
+#+end_src
+
+** Canonical Rendering
+
+#+begin_src python
+from lofbench.renderers import CanonicalConfig, CanonicalRenderer
+
+config = CanonicalConfig(spacing=False)
+canonical = CanonicalRenderer(config)
+
+expressions = [
+    "()",
+    "(())",
+    "()()",
+    "((())())",
+    "(())(())",
+]
+
+print("\n=== Canonical Rendering ===")
+print("(Standard parentheses)\n")
+
+for expr in expressions:
+    result = canonical.render(expr)
+    print(f"  {expr:15} → {result.rendered}")
+#+end_src
+
+** Canonical with Spacing
+
+#+begin_src python
+from lofbench.renderers import CanonicalConfig, CanonicalRenderer
+
+config = CanonicalConfig(spacing=True)
+canonical = CanonicalRenderer(config)
+
+expressions = [
+    "()",
+    "(())",
+    "()()",
+    "((())())",
+    "(())(())",
+]
+
+print("\n=== Canonical Rendering ===")
+print("(Standard parentheses)\n")
+
+for expr in expressions:
+    result = canonical.render(expr)
+    print(f"  {expr:15} → {result.rendered}")
+#+end_src
+
+#+RESULTS:
+: 
+: === Canonical Rendering ===
+: (Standard parentheses)
+: 
+:   ()              → ()
+:   (())            → ( () )
+:   ()()            → () ()
+:   ((())())        → ( ( () )())
+:   (())(())        → (())(() )
+
+** Noisy Brackets
+
+#+begin_src python
+from lofbench.renderers import get_renderer
+import random
+
+noisy = get_renderer("noisy_parens")
+
+expressions = [
+    "()",
+    "(())",
+    "()()",
+    "((())())",
+    "(())(())",
+]
+
+print("\n=== Noisy Bracket Rendering ===")
+print("(Random bracket substitution)\n")
+
+rng = random.Random(42)
+for expr in expressions:
+    result = noisy.render(expr, rng)
+    print(f"  {expr:15} → {result.rendered}")
+#+end_src
+
+** Mismatched Brackets
+
+#+begin_src python
+from lofbench.renderers import NoisyParensRenderer, NoisyParensConfig
+import random
+
+config = NoisyParensConfig(mismatched=True)
+renderer = NoisyParensRenderer(config)
+
+expressions = [
+    "()",
+    "(())",
+    "()()",
+    "((())())",
+]
+
+print("\n=== Mismatched Bracket Mode ===")
+print("(Opening and closing chosen independently)\n")
+
+rng = random.Random(123)
+for expr in expressions:
+    result = renderer.render(expr, rng)
+    print(f"  {expr:15} → {result.rendered}")
+#+end_src
+
+#+RESULTS:
+: 
+: === Mismatched Bracket Mode ===
+: (Opening and closing chosen independently)
+: 
+:   ()              → (⟩
+:   (())            → [〈⟩]
+:   ()()            → (〉「」
+:   ((())())        → 〈〈(}}〈」〉
+
+** Nested List Rendering
+
+#+begin_src python
+from lofbench.renderers import get_renderer
+
+nested = get_renderer("nested_list")
+
+expressions = [
+    "()",
+    "(())",
+    "()()",
+    "((())())",
+    "(())(())",
+]
+
+print("\n=== Nested List Rendering ===")
+print("(JSON array representation)\n")
+
+for expr in expressions:
+    result = nested.render(expr)
+    print(f"  {expr:15} → {result.rendered}")
+#+end_src
+
+#+RESULTS:
+: 
+: === Nested List Rendering ===
+: (JSON array representation)
+: 
+:   ()              → [[]]
+:   (())            → [[[]]]
+:   ()()            → [[], []]
+:   ((())())        → [[[[]], []]]
+:   (())(())        → [[[]], [[]]]
+
+** S-Expression Rendering
+
+#+begin_src python
+from lofbench.renderers import get_renderer, SEXPR_PRESETS
+
+expressions = [
+    "()",
+    "(())",
+    "()()",
+    "((())())",
+]
+
+# Default preset (x)
+print("\n=== S-Expression Rendering ===")
+print("\nDefault preset (symbol='x'):")
+sexpr = get_renderer("sexpr")
+for expr in expressions:
+    result = sexpr.render(expr)
+    print(f"  {expr:15} → {result.rendered}")
+
+# Lisp preset
+print("\nLisp preset (symbol='quote'):")
+sexpr_lisp = get_renderer("sexpr", preset="lisp")
+for expr in expressions:
+    result = sexpr_lisp.render(expr)
+    print(f"  {expr:15} → {result.rendered}")
+
+# Rust preset
+print("\nRust preset (symbol='Box::new'):")
+sexpr_rust = get_renderer("sexpr", preset="rust")
+for expr in expressions:
+    result = sexpr_rust.render(expr)
+    print(f"  {expr:15} → {result.rendered}")
+
+# Custom symbol
+print("\nCustom symbol ('mark'):")
+sexpr_mark = get_renderer("sexpr", symbol="mark")
+for expr in expressions:
+    result = sexpr_mark.render(expr)
+    print(f"  {expr:15} → {result.rendered}")
+#+end_src
+
+#+RESULTS:
+#+begin_example
+
+=== S-Expression Rendering ===
+
+Default preset (symbol='x'):
+  ()              → (x)
+  (())            → (x (x))
+  ()()            → (x) (x)
+  ((())())        → (x (x (x)) (x))
+
+Lisp preset (symbol='quote'):
+  ()              → (quote)
+  (())            → (quote (quote))
+  ()()            → (quote) (quote)
+  ((())())        → (quote (quote (quote)) (quote))
+
+Rust preset (symbol='Box::new'):
+  ()              → (Box::new)
+  (())            → (Box::new (Box::new))
+  ()()            → (Box::new), (Box::new)
+  ((())())        → (Box::new (Box::new (Box::new)), (Box::new))
+
+Custom symbol ('mark'):
+  ()              → (mark)
+  (())            → (mark (mark))
+  ()()            → (mark) (mark)
+  ((())())        → (mark (mark (mark)) (mark))
+#+end_example
+
+*** Available S-Expression Presets
+
+#+begin_src python
+from lofbench.renderers import SEXPR_PRESETS
+
+print("=== Available S-Expression Presets ===\n")
+for name, config in SEXPR_PRESETS.items():
+    print(f"{name:10}: symbol='{config['symbol']}', delims='{config['open']}...{config['close']}', sep='{config['separator']}'")
+#+end_src
+
+#+RESULTS:
+: === Available S-Expression Presets ===
+: 
+: default   : symbol='x', delims='(...)', sep=' '
+: lisp      : symbol='quote', delims='(...)', sep=' '
+: scheme    : symbol='cons', delims='(...)', sep=' '
+: python    : symbol='fn', delims='(...)', sep=', '
+: rust      : symbol='Box::new', delims='(...)', sep=', '
+: java      : symbol='new Node', delims='(...)', sep=', '
+: haskell   : symbol='Node', delims=' ...', sep=' '
+
+** Visual Circle Rendering
+
+#+begin_src python
+from lofbench.renderers import SVGCircleRenderer, SVGCircleConfig
+import urllib.parse
+from pathlib import Path
+
+# Create output directory
+output_dir = Path("feedback")
+output_dir.mkdir(exist_ok=True)
+
+# Simple examples to demonstrate
+simple_expressions = [
+    "()",
+    "(())",
+    "()()",
+    "((())())",
+]
+
+# Outline renderer
+outline_renderer = SVGCircleRenderer(config=SVGCircleConfig(fill_style="none"))
+
+# Filled renderer
+filled_renderer = SVGCircleRenderer(config=SVGCircleConfig(fill_style="alternating"))
+
+print("=== SVG Circle Rendering ===\n")
+print("Generating sample SVGs...\n")
+
+for i, expr in enumerate(simple_expressions, 1):
+    outline_result = outline_renderer.render(expr)
+    filled_result = filled_renderer.render(expr)
+
+    # Decode and save
+    outline_svg = urllib.parse.unquote(
+        outline_result.rendered.replace("data:image/svg+xml;charset=utf-8,", "")
+    )
+    filled_svg = urllib.parse.unquote(
+        filled_result.rendered.replace("data:image/svg+xml;charset=utf-8,", "")
+    )
+
+    outline_path = output_dir / f"simple_{i}_outline.svg"
+    filled_path = output_dir / f"simple_{i}_filled.svg"
+
+    outline_path.write_text(outline_svg)
+    filled_path.write_text(filled_svg)
+
+    print(f"{expr:15} → {outline_path.name} / {filled_path.name}")
+
+print(f"\nSaved SVGs to: {output_dir}/")
+#+end_src
+
+#+RESULTS:
+#+begin_example
+=== SVG Circle Rendering ===
+
+Generating sample SVGs...
+
+()              → simple_1_outline.svg / simple_1_filled.svg
+(())            → simple_2_outline.svg / simple_2_filled.svg
+()()            → simple_3_outline.svg / simple_3_filled.svg
+((())())        → simple_4_outline.svg / simple_4_filled.svg
+
+Saved SVGs to: feedback/
+#+end_example
+
+*** View Sample SVGs
+
+Expression: =()=
+
+#+begin_src python :results file
+"feedback/simple_1_filled.svg"
+#+end_src
+
+Expression: =(())=
+
+#+begin_src python :results file
+"feedback/simple_2_filled.svg"
+#+end_src
+
+Expression: =()()=
+
+#+begin_src python :results file
+"feedback/simple_3_filled.svg"
+#+end_src
+
+Expression: =((())())=
+
+#+begin_src python :results file
+"feedback/simple_4_filled.svg"
+#+end_src
+
+* Dataset Generation
+
+** Generate Test Cases
+
+#+begin_src python
+from lofbench import generate_test_cases
+from collections import Counter
+
+# Generate a small sample
+cases = generate_test_cases(n=100, seed=2025)
+
+print(f"Generated {len(cases)} test cases\n")
+
+# Show distribution
+by_diff = Counter(c["difficulty"] for c in cases)
+by_target = Counter(c["target"] for c in cases)
+
+print("By Difficulty:")
+for diff in sorted(by_diff.keys()):
+    print(f"  {diff}: {by_diff[diff]}")
+
+print("\nBy Target:")
+for target, count in by_target.items():
+    print(f"  {target:10}: {count} ({100*count/len(cases):.1f}%)")
+
+print("\n=== Sample Cases ===\n")
+for case in cases[:5]:
+    print(f"{case['input']:20} → {case['target']:10} ({case['difficulty']})")
+#+end_src
+
+** Composite Cases
+
+#+begin_src python
+from lofbench import generate_composite_test_cases
+from collections import Counter
+
+# Generate composite groups
+groups = generate_composite_test_cases(n_groups=50, group_size=8, seed=2025)
+
+print(f"Generated {len(groups)} composite groups\n")
+
+# Count distribution
+count_dist = Counter(c["count"] for c in groups)
+
+print("Target Count Distribution:")
+max_count = max(count_dist.values())
+for k in sorted(count_dist.keys()):
+    bar = "█" * int(20 * count_dist[k] / max_count)
+    print(f"  {k} marked: {bar} {count_dist[k]}")
+#+end_src
+
+* Quick Tests
+
+** Test Specific Expression
+
+#+begin_src python
+from lofbench.simplify import simplify_parens
+from lofbench.core import string_depth
+
+# Test any expression
+test_expr = "(()(())())"
+
+result = simplify_parens(test_expr)
+depth = string_depth(test_expr)
+
+print(f"Expression: {test_expr}")
+print(f"Depth: {depth}")
+print(f"Length: {len(test_expr)}")
+print(f"Simplifies to: {result if result else '∅ (void)'}")
+#+end_src
+
+** Batch Simplification
+
+#+begin_src python
+from lofbench.simplify import simplify_parens
+
+# Test multiple expressions
+expressions = [
+    "(())",
+    "()()",
+    "((())())",
+    "(())(())",
+    "(()(())())",
+    "(((())))",
+]
+
+print("=== Batch Simplification ===\n")
+for expr in expressions:
+    result = simplify_parens(expr)
+    result_display = result if result else "∅"
+    print(f"{expr:20} → {result_display}")
+#+end_src

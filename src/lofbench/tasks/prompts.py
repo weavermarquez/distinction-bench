@@ -51,18 +51,19 @@ the boundary. For example, in a plane space a circle draws a distinction.
 
 The value of a call made again is the value of the call.
 That is to say, for any name, to recall is to call.
-Example: ()() simplifies to ()
+Example: []() simplifies to []
 
 ### Axiom 2. The law of crossing
 
 The value of a crossing made again is not the value of the crossing.
 That is to say, for any boundary, to recross is not to cross.
-Example: (()) simplifies to nothing
+Example: [()] simplifies to nothing
 
 ## Instructions
 
 1. For each expression, identify the structure of distinctions
-2. Convert to standard mixed-bracket [()]{} notation (the canonical form)
+2. Convert the original expression to its canonical mixed-bracket [()]{{}} representation.
+  It must match the original in its foundational structure.
 3. Apply axioms iteratively until no more reductions are possible
 4. Determine if each reduces to marked (structure remains) or unmarked (void)
 

@@ -6,6 +6,7 @@ import random
 from typing import TYPE_CHECKING
 
 from inspect_ai.dataset import MemoryDataset, Sample
+from inspect_ai.model import ChatMessageUser, ContentImage, ContentText
 
 from lofbench.core import generate_composite_test_cases, generate_test_cases
 
@@ -44,13 +45,29 @@ def create_single_dataset(
     for case in cases:
         rendered = renderer.render(case["input"], rng)
 
+        # Handle image vs text rendering
+        is_image = rendered.metadata.get("format") == "image"
+        if is_image:
+            # For images, use ContentImage in input
+            input_content = [
+                ChatMessageUser(
+                    content=[
+                        ContentImage(image=rendered.rendered),
+                        ContentText(text="What does this expression evaluate to?"),
+                    ]
+                )
+            ]
+        else:
+            # For text, use placeholder (template provides real prompt)
+            input_content = "Evaluate the expression"
+
         samples.append(
             Sample(
                 id=case["id"],
-                input="Evaluate the expression",  # Placeholder, template provides real prompt
+                input=input_content,
                 target=case["target"],  # "marked" or "unmarked"
                 metadata={
-                    "expression": rendered.rendered,  # For template substitution
+                    "expression": rendered.rendered if not is_image else "",
                     "difficulty": case["difficulty"],
                     "depth": case["depth"],
                     "steps": case["steps"],
@@ -102,13 +119,31 @@ def create_composite_dataset(
         # Render each expression
         rendered_exprs = [renderer.render(expr, rng) for expr in case["expressions"]]
 
-        # Format as numbered list for the prompt
-        formatted_input = "\n".join(f"E{i + 1}. {r.rendered}" for i, r in enumerate(rendered_exprs))
+        # Check if rendering as images
+        is_image = rendered_exprs[0].metadata.get("format") == "image"
+
+        if is_image:
+            # Build multimodal content with labeled images
+            content_parts = []
+            for i, r in enumerate(rendered_exprs):
+                content_parts.append(ContentText(text=f"E{i + 1}."))
+                content_parts.append(ContentImage(image=r.rendered))
+
+            # Add evaluation prompt at the end
+            content_parts.append(ContentText(text="What do these expressions evaluate to?"))
+
+            input_content = [ChatMessageUser(content=content_parts)]
+            # Still create formatted_input for metadata/debugging
+            formatted_input = f"[{len(rendered_exprs)} images]"
+        else:
+            # For text, format as numbered list
+            formatted_input = "\n".join(f"E{i + 1}. {r.rendered}" for i, r in enumerate(rendered_exprs))
+            input_content = "Evaluate the expressions"  # Placeholder, template provides real prompt
 
         samples.append(
             Sample(
                 id=case["id"],
-                input="Evaluate the expressions",  # Placeholder, template provides real prompt
+                input=input_content,
                 target=",".join(case["targets"]),  # e.g., "marked,unmarked,marked,marked"
                 metadata={
                     "expressions": formatted_input,  # For template substitution

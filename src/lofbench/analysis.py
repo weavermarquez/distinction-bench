@@ -2,11 +2,294 @@
 
 from __future__ import annotations
 
+import random
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from inspect_ai.log import EvalLog, list_eval_logs, read_eval_log
+import pandas as pd
+from inspect_ai.log import EvalLog, EvalLogInfo, list_eval_logs, read_eval_log
+
+
+# =============================================================================
+# Log Loading Utilities
+# =============================================================================
+
+
+def load_curated_logs(
+    log_ids: list[str],
+    log_dir: str = "./logs",
+    header_only: bool = False,
+) -> dict[str, EvalLog]:
+    """Load specific eval logs by their task_id.
+
+    Args:
+        log_ids: List of task IDs (the ID portion of the filename, e.g., 'MSnrYp76447Lbe8fD64VZs')
+        log_dir: Directory containing eval logs
+        header_only: If True, only load metadata (faster for large logs).
+                    Note: Cancelled runs will be reloaded with samples to compute metrics.
+
+    Returns:
+        Dict mapping task_id to EvalLog
+    """
+    log_paths = list(list_eval_logs(log_dir))
+    id_to_path: dict[str, EvalLogInfo] = {}
+
+    for path in log_paths:
+        # Extract task_id from path - it's the last part before .eval
+        task_id = getattr(path, 'task_id', None)
+        if task_id:
+            id_to_path[task_id] = path
+
+    result = {}
+    for log_id in log_ids:
+        if log_id in id_to_path:
+            try:
+                log = read_eval_log(id_to_path[log_id], header_only=header_only)
+                # For cancelled runs without results, reload with samples to compute metrics
+                if header_only and log.results is None:
+                    log = read_eval_log(id_to_path[log_id], header_only=False)
+                result[log_id] = log
+            except Exception as e:
+                print(f"Warning: Could not read log {log_id}: {e}")
+        else:
+            print(f"Warning: Log ID {log_id} not found")
+
+    return result
+
+
+def get_log_metadata(log: EvalLog) -> dict[str, Any]:
+    """Extract key metadata from an eval log.
+
+    Returns dict with: model, renderer, mismatched, thinking_tokens, n_samples, epochs
+    """
+    task_args = log.eval.task_args or {}
+    renderer = task_args.get('renderer', 'parens')
+    config = task_args.get('renderer_config') or {}
+    mismatched = config.get('mismatched', False) if config else False
+
+    gen_config = log.eval.model_generate_config
+    thinking = gen_config.reasoning_tokens if gen_config else 0
+    if thinking is None:
+        thinking = 0  # None means reasoning disabled
+
+    # Determine dialect name
+    if renderer == 'parens':
+        dialect = 'canonical'
+    elif renderer == 'noisy_parens' and not mismatched:
+        dialect = 'noisy-balanced'
+    elif renderer == 'noisy_parens' and mismatched:
+        dialect = 'noisy-mismatch'
+    else:
+        dialect = renderer
+
+    return {
+        'model': log.eval.model,
+        'renderer': renderer,
+        'mismatched': mismatched,
+        'dialect': dialect,
+        'thinking_tokens': thinking,
+        'n_samples': log.eval.dataset.samples if log.eval.dataset else None,
+        'epochs': log.eval.config.epochs if log.eval.config else 1,
+    }
+
+
+def get_log_results(log: EvalLog) -> dict[str, float | None]:
+    """Extract headline metrics from an eval log.
+
+    Falls back to computing from samples if log.results is None (cancelled runs).
+
+    Returns dict with: per_item_accuracy, all_correct, structure_accuracy
+    """
+    metrics_out = {'per_item_accuracy': None, 'all_correct': None, 'structure_accuracy': None}
+
+    # Try to get from results first
+    results = log.results
+    if results and results.scores:
+        for score in results.scores:
+            val = score.metrics.get('mean')
+            if val:
+                if score.name == 'per_item_accuracy':
+                    metrics_out['per_item_accuracy'] = val.value
+                elif score.name == 'all_correct':
+                    metrics_out['all_correct'] = val.value
+                elif score.name == 'structure_accuracy':
+                    metrics_out['structure_accuracy'] = val.value
+        return metrics_out
+
+    # Fall back to computing from samples (for cancelled runs)
+    if log.samples:
+        per_item_vals = []
+        all_correct_vals = []
+        structure_vals = []
+
+        for sample in log.samples:
+            if sample.scores:
+                score = list(sample.scores.values())[0]
+                if isinstance(score.value, dict):
+                    per_item_vals.append(score.value.get('per_item_accuracy', 0))
+                    all_correct_vals.append(score.value.get('all_correct', 0))
+                    struct = score.value.get('structure_accuracy')
+                    if struct is not None:
+                        structure_vals.append(struct)
+
+        if per_item_vals:
+            metrics_out['per_item_accuracy'] = sum(per_item_vals) / len(per_item_vals)
+        if all_correct_vals:
+            metrics_out['all_correct'] = sum(all_correct_vals) / len(all_correct_vals)
+        if structure_vals:
+            metrics_out['structure_accuracy'] = sum(structure_vals) / len(structure_vals)
+
+    return metrics_out
+
+
+# =============================================================================
+# DataFrame Utilities
+# =============================================================================
+
+
+def parse_score_column(df: pd.DataFrame, score_col: str = 'score_lof_composite_scorer') -> pd.DataFrame:
+    """Extract dict score values into separate columns.
+
+    Args:
+        df: DataFrame with a dict-valued or JSON string score column
+        score_col: Name of the score column containing dicts or JSON strings
+
+    Returns:
+        DataFrame with new columns: per_item_accuracy, all_correct, structure_accuracy
+    """
+    import json
+
+    df = df.copy()
+
+    if score_col not in df.columns:
+        return df
+
+    def _parse_score(x):
+        """Parse score value, handling both dict and JSON string."""
+        if isinstance(x, dict):
+            return x
+        if isinstance(x, str):
+            try:
+                return json.loads(x)
+            except (json.JSONDecodeError, ValueError):
+                return {}
+        return {}
+
+    df['per_item_accuracy'] = df[score_col].apply(
+        lambda x: _parse_score(x).get('per_item_accuracy', 0)
+    )
+    df['all_correct'] = df[score_col].apply(
+        lambda x: _parse_score(x).get('all_correct', 0)
+    )
+    df['structure_accuracy'] = df[score_col].apply(
+        lambda x: _parse_score(x).get('structure_accuracy')
+    )
+
+    return df
+
+
+def normalize_epochs(df: pd.DataFrame, k: int = 2, seed: int = 42) -> pd.DataFrame:
+    """Subsample k epochs per sample for fair cross-run comparison.
+
+    Args:
+        df: DataFrame with 'id' and 'epoch' columns
+        k: Number of epochs to sample per sample
+        seed: Random seed for reproducibility
+
+    Returns:
+        DataFrame with at most k rows per sample ID
+    """
+    rng = random.Random(seed)
+
+    rows_to_keep = []
+    for sample_id, group in df.groupby('id'):
+        epochs = group['epoch'].unique().tolist()
+        if len(epochs) <= k:
+            rows_to_keep.extend(group.index.tolist())
+        else:
+            selected_epochs = rng.sample(epochs, k)
+            mask = group['epoch'].isin(selected_epochs)
+            rows_to_keep.extend(group[mask].index.tolist())
+
+    return df.loc[rows_to_keep].copy()
+
+
+# =============================================================================
+# Epoch-Aware Metrics
+# =============================================================================
+
+
+def compute_k1_accuracy(df: pd.DataFrame, metric_col: str = 'per_item_accuracy') -> float:
+    """Compute mean accuracy across all epochs (K=1 single-shot equivalent).
+
+    This gives the expected accuracy if you only run each sample once.
+    """
+    return df[metric_col].mean()
+
+
+def compute_pass_at_k(df: pd.DataFrame, k: int, metric_col: str = 'all_correct') -> float:
+    """Compute pass@k: probability that at least 1 of k epochs is correct.
+
+    Args:
+        df: DataFrame with 'id', 'epoch', and metric columns
+        k: Number of attempts
+        metric_col: Column containing correctness (0/1)
+
+    Returns:
+        Fraction of samples with at least one correct epoch
+    """
+    # Normalize to k epochs first
+    df_k = normalize_epochs(df, k=k)
+
+    # Group by sample and check if any epoch was correct
+    passed = df_k.groupby('id')[metric_col].apply(lambda x: x.max() > 0)
+    return passed.mean()
+
+
+def compute_all_at_k(df: pd.DataFrame, k: int, metric_col: str = 'all_correct') -> float:
+    """Compute all@k: probability that all k epochs are correct.
+
+    Args:
+        df: DataFrame with 'id', 'epoch', and metric columns
+        k: Number of attempts
+        metric_col: Column containing correctness (0/1)
+
+    Returns:
+        Fraction of samples where all epochs were correct
+    """
+    # Normalize to k epochs first
+    df_k = normalize_epochs(df, k=k)
+
+    # Group by sample and check if all epochs were correct
+    all_passed = df_k.groupby('id')[metric_col].apply(lambda x: x.min() > 0)
+    return all_passed.mean()
+
+
+def compute_by_dimension(
+    df: pd.DataFrame,
+    dim: str,
+    metric_col: str = 'per_item_accuracy'
+) -> pd.DataFrame:
+    """Compute metrics grouped by a dimension (difficulty, target, etc).
+
+    Args:
+        df: DataFrame with the dimension column and metric columns
+        dim: Column name to group by (e.g., 'metadata_difficulty', 'target')
+        metric_col: Metric to aggregate
+
+    Returns:
+        DataFrame with dim, mean, std, count columns
+    """
+    grouped = df.groupby(dim)[metric_col].agg(['mean', 'std', 'count'])
+    grouped = grouped.reset_index()
+    grouped.columns = [dim, 'mean', 'std', 'count']
+    return grouped
+
+
+# =============================================================================
+# Original Functions (kept for backwards compatibility)
+# =============================================================================
 
 
 def load_logs(log_dir: str = "./logs", pattern: str = "*") -> list[EvalLog]:
@@ -28,10 +311,11 @@ def extract_composite_results(log: EvalLog) -> list[dict[str, Any]]:
     for sample in log.samples or []:
         metadata = sample.metadata or {}
 
-        # Get score values
+        # Get score values (scores is a dict, not a list)
         score_dict = {}
         if sample.scores:
-            score = sample.scores[0]
+            # Get first scorer's value from dict
+            score = list(sample.scores.values())[0]
             if isinstance(score.value, dict):
                 score_dict = score.value
 
@@ -52,15 +336,18 @@ def extract_composite_results(log: EvalLog) -> list[dict[str, Any]]:
 
 def _extract_predicted_count(sample) -> int:
     """Extract predicted count from sample scores."""
-    if sample.scores and sample.scores[0].answer:
-        try:
-            # Parse the answer string to get total_marked
-            import ast
-            answer = ast.literal_eval(sample.scores[0].answer)
-            if isinstance(answer, dict):
-                return answer.get("total_marked", -1)
-        except (ValueError, SyntaxError):
-            pass
+    if sample.scores:
+        # Get first scorer from dict
+        score = list(sample.scores.values())[0]
+        if score.answer:
+            try:
+                # Parse the answer string to get total_marked
+                import ast
+                answer = ast.literal_eval(score.answer)
+                if isinstance(answer, dict):
+                    return answer.get("total_marked", -1)
+            except (ValueError, SyntaxError):
+                pass
     return -1
 
 
@@ -197,7 +484,11 @@ def analyze_single(logs: list[EvalLog]) -> str:
         if "single" in (log.eval.task or "") and "composite" not in (log.eval.task or ""):
             for sample in log.samples or []:
                 metadata = sample.metadata or {}
-                correct = sample.scores[0].value == "C" if sample.scores else False
+                # Get score from dict (not list)
+                correct = False
+                if sample.scores:
+                    score = list(sample.scores.values())[0]
+                    correct = score.value == "C"
                 all_results.append({
                     "model": log.eval.model,
                     "difficulty": metadata.get("difficulty", "unknown"),

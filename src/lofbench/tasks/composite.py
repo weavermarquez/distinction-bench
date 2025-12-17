@@ -75,7 +75,7 @@ def composite_lof_task(
         scorer=lof_composite_scorer(),
         epochs=Epochs(3, "at_least_2"),
         config=GenerateConfig(
-            temperature=1,
+            # temperature=1,
             max_tokens=64000,  # Even playing field; models cap to their own limits
         ),
         metadata={
