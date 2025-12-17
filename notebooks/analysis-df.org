@@ -290,7 +290,7 @@ print(model_df.to_string(index=False))
 #+RESULTS:
 : === Model Comparison ===
 :          model        dialect  thinking  n_samples  per_item  all_correct  structure
-: Opus 4.5 (64k) noisy-mismatch     63999       1000       NaN          NaN        NaN
+: Opus 4.5 (64k) noisy-mismatch     63999       1000  0.944404     0.854501   0.209367
 :        GPT 5.2 noisy-balanced     10000         10  0.800000     0.800000   0.600000
 :   Gemini 3 Pro noisy-mismatch         0         30  0.733333     0.733333   0.066667
 :     Sonnet 4.5      canonical     10000         10  0.000000     0.000000   0.100000
@@ -336,15 +336,15 @@ else:
 Total samples: 2055
 Unique sample IDs: 991
 
-K=1 Per-item accuracy: 0.0%
+K=1 Per-item accuracy: 94.4%
 
 === By Difficulty ===
-metadata_difficulty  mean  std  count
-            1. easy   0.0  0.0    415
-          2. medium   0.0  0.0    411
-            3. hard   0.0  0.0    420
-         4. lunatic   0.0  0.0    402
-           5. extra   0.0  0.0    407
+metadata_difficulty     mean      std  count
+            1. easy 0.992771 0.045400    415
+          2. medium 0.973236 0.086681    411
+            3. hard 0.947619 0.146336    420
+         4. lunatic 0.922264 0.186904    402
+           5. extra 0.884521 0.218861    407
 #+end_example
 
 * Export Summary Table
@@ -466,6 +466,7 @@ plt.close()
 #+end_src
 
 #+RESULTS:
+: Saved: figures/notation_comparison.png
 
 * Conclusion
 

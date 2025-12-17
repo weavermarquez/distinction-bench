@@ -26,7 +26,8 @@ def load_curated_logs(
     Args:
         log_ids: List of task IDs (the ID portion of the filename, e.g., 'MSnrYp76447Lbe8fD64VZs')
         log_dir: Directory containing eval logs
-        header_only: If True, only load metadata (faster for large logs)
+        header_only: If True, only load metadata (faster for large logs).
+                    Note: Cancelled runs will be reloaded with samples to compute metrics.
 
     Returns:
         Dict mapping task_id to EvalLog
@@ -44,7 +45,11 @@ def load_curated_logs(
     for log_id in log_ids:
         if log_id in id_to_path:
             try:
-                result[log_id] = read_eval_log(id_to_path[log_id], header_only=header_only)
+                log = read_eval_log(id_to_path[log_id], header_only=header_only)
+                # For cancelled runs without results, reload with samples to compute metrics
+                if header_only and log.results is None:
+                    log = read_eval_log(id_to_path[log_id], header_only=False)
+                result[log_id] = log
             except Exception as e:
                 print(f"Warning: Could not read log {log_id}: {e}")
         else:
@@ -92,11 +97,14 @@ def get_log_metadata(log: EvalLog) -> dict[str, Any]:
 def get_log_results(log: EvalLog) -> dict[str, float | None]:
     """Extract headline metrics from an eval log.
 
+    Falls back to computing from samples if log.results is None (cancelled runs).
+
     Returns dict with: per_item_accuracy, all_correct, structure_accuracy
     """
-    results = log.results
     metrics_out = {'per_item_accuracy': None, 'all_correct': None, 'structure_accuracy': None}
 
+    # Try to get from results first
+    results = log.results
     if results and results.scores:
         for score in results.scores:
             val = score.metrics.get('mean')
@@ -107,6 +115,30 @@ def get_log_results(log: EvalLog) -> dict[str, float | None]:
                     metrics_out['all_correct'] = val.value
                 elif score.name == 'structure_accuracy':
                     metrics_out['structure_accuracy'] = val.value
+        return metrics_out
+
+    # Fall back to computing from samples (for cancelled runs)
+    if log.samples:
+        per_item_vals = []
+        all_correct_vals = []
+        structure_vals = []
+
+        for sample in log.samples:
+            if sample.scores:
+                score = list(sample.scores.values())[0]
+                if isinstance(score.value, dict):
+                    per_item_vals.append(score.value.get('per_item_accuracy', 0))
+                    all_correct_vals.append(score.value.get('all_correct', 0))
+                    struct = score.value.get('structure_accuracy')
+                    if struct is not None:
+                        structure_vals.append(struct)
+
+        if per_item_vals:
+            metrics_out['per_item_accuracy'] = sum(per_item_vals) / len(per_item_vals)
+        if all_correct_vals:
+            metrics_out['all_correct'] = sum(all_correct_vals) / len(all_correct_vals)
+        if structure_vals:
+            metrics_out['structure_accuracy'] = sum(structure_vals) / len(structure_vals)
 
     return metrics_out
 
@@ -120,25 +152,38 @@ def parse_score_column(df: pd.DataFrame, score_col: str = 'score_lof_composite_s
     """Extract dict score values into separate columns.
 
     Args:
-        df: DataFrame with a dict-valued score column
-        score_col: Name of the score column containing dicts
+        df: DataFrame with a dict-valued or JSON string score column
+        score_col: Name of the score column containing dicts or JSON strings
 
     Returns:
         DataFrame with new columns: per_item_accuracy, all_correct, structure_accuracy
     """
+    import json
+
     df = df.copy()
 
     if score_col not in df.columns:
         return df
 
+    def _parse_score(x):
+        """Parse score value, handling both dict and JSON string."""
+        if isinstance(x, dict):
+            return x
+        if isinstance(x, str):
+            try:
+                return json.loads(x)
+            except (json.JSONDecodeError, ValueError):
+                return {}
+        return {}
+
     df['per_item_accuracy'] = df[score_col].apply(
-        lambda x: x.get('per_item_accuracy', 0) if isinstance(x, dict) else 0
+        lambda x: _parse_score(x).get('per_item_accuracy', 0)
     )
     df['all_correct'] = df[score_col].apply(
-        lambda x: x.get('all_correct', 0) if isinstance(x, dict) else 0
+        lambda x: _parse_score(x).get('all_correct', 0)
     )
     df['structure_accuracy'] = df[score_col].apply(
-        lambda x: x.get('structure_accuracy') if isinstance(x, dict) else None
+        lambda x: _parse_score(x).get('structure_accuracy')
     )
 
     return df
