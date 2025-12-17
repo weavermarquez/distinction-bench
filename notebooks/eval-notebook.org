@@ -1,5 +1,5 @@
 #+title: Distinction Benchmark
-#+date: <2025-12-12 Fri>
+#+date: <2025-12-15 Sun>
 #+author: Valerie Kim
 #+property: header-args:python :session lof :results output :python "../.venv/bin/python"
 
@@ -15,310 +15,578 @@ based on a single symbol: the /mark/ or /cross/, written as =()=.
 
 The calculus has only two axioms:
 
-| Axiom | Name   | Rule        | Interpretation    |
-|-------+--------+-------------+-------------------|
-| I1    | Number | =()()= → =()=   | Condense/Confirm  |
-| I2    | Order  | =(())= → void | Cancel/Compensate |
+| Axiom | Name     | Rule           | Interpretation    |
+|-------+----------+----------------+-------------------|
+| I1    | Calling  | =()()= → =()=      | Condense/Confirm  |
+| I2    | Crossing | =(())= → nothing | Cancel/Compensate |
 
-- *I1 (Number)*: Multiple adjacent marks condense to a single mark
-- *I2 (Order)*: A mark containing only a mark cancels to void (nothing)
+- *I1 (Calling)*: Multiple adjacent marks condense to a single mark
+- *I2 (Crossing)*: A mark containing only a mark cancels to nothing
 
 Every well-formed expression reduces to exactly one of two values:
 - =()= (marked) — equivalent to TRUE or 1
-- void (unmarked) — equivalent to FALSE or 0
+- nothing (unmarked) — equivalent to FALSE or 0
 
 * Setup
 
 #+begin_src python
 import os
-import json
-from dataclasses import dataclass, field
-from dotenv import load_dotenv
+from pathlib import Path
 
-from lofbench import generate_test_cases, generate_composite_test_cases
-from lofbench.eval import quick_test, run_eval, analyze, SingleTask, CompositeTask
-
-load_dotenv(override=True)
-
-@dataclass
-class Config:
-    """Central configuration for all evaluations.
-
-    Note: API keys here are only used to check provider availability.
-    The SDKs read directly from environment variables:
-      - OPENAI_API_KEY
-      - ANTHROPIC_API_KEY
-      - GOOGLE_API_KEY
-    """
-    openai_key: str = field(default_factory=lambda: os.environ.get("OPENAI_API_KEY", ""))
-    anthropic_key: str = field(default_factory=lambda: os.environ.get("ANTHROPIC_API_KEY", ""))
-    gemini_key: str = field(default_factory=lambda: os.environ.get("GOOGLE_API_KEY", ""))
-
-    models: dict = field(default_factory=lambda: {
-        "openai": "gpt-5.2",
-        "anthropic": "claude-opus-4-5-20251101",
-        "google": "gemini-3-pro-preview"
-    })
-
-    sample_size: int = 5
-    seed: int = 2024
-
-    @property
-    def available_providers(self) -> list[str]:
-        providers = []
-        if self.openai_key: providers.append("openai")
-        if self.anthropic_key: providers.append("anthropic")
-        if self.gemini_key: providers.append("google")
-        return providers
-
-CFG = Config()
+# Ensure we're in the right directory
+os.chdir(Path(__file__).parent if "__file__" in dir() else Path.cwd())
 
 print("Setup complete.")
-for p in ["openai", "anthropic", "google"]:
-    key = getattr(CFG, f"{p}_key" if p != "google" else "gemini_key")
-    status = "✓" if key else "✗"
-    print(f"  {status} {p}: {CFG.models[p]}")
+print(f"Working directory: {Path.cwd()}")
 #+end_src
 
-#+RESULTS:
-: Setup complete.
-:   ✓ openai: gpt-5.2
-:   ✓ anthropic: claude-opus-4-5-20251101
-:   ✓ google: gemini-3-pro-preview
+* Quick Test with inspect-ai
 
-* Generate Test Cases
+** Run a Small Evaluation
 
-#+begin_src python
-test_cases = generate_test_cases(n=4000, seed=20251211)
-composite_cases = generate_composite_test_cases(n_groups=500, group_size=8, seed=2024)
-
-print(f"Generated {len(test_cases)} single test cases")
-print(f"Generated {len(composite_cases)} composite test cases")
-
-with open("test_cases.json", "w") as f:
-    json.dump(test_cases, f, indent=2)
-with open("composite_test_cases.json", "w") as f:
-    json.dump(composite_cases, f, indent=2)
-#+end_src
-
-* Load Test Cases
-
-#+begin_src python
-with open("test_cases.json", "r") as f:
-    test_cases = json.load(f)
-with open("composite_test_cases.json", "r") as f:
-    composite_cases = json.load(f)
-print(f"Loaded {len(test_cases)} single, {len(composite_cases)} composite test cases")
-#+end_src
-
-#+RESULTS:
-: Loaded 4000 single, 500 composite test cases
-
-* Run Quick Test (live calls)
-
-** Evaluate
 #+begin_src python :async
-results = quick_test(
-    composite_cases,
-    CompositeTask,
-    n=CFG.sample_size,
-    providers=CFG.available_providers,
-    models=CFG.models,
+import subprocess
+
+# Run a quick eval with 10 samples
+result = subprocess.run(
+    [
+        "uv", "run", "inspect", "eval",
+        "src/lofbench/tasks/single.py",
+        "--model", "anthropic/claude-sonnet-4-20250514",
+        "-T", "n=10",
+        "-T", "seed=2025",
+    ],
+    capture_output=True,
+    text=True,
+    cwd=".."
 )
-with open("sample_results.json", "w") as f:
-    json.dump(results, f, indent=2)
+print(result.stdout)
+if result.stderr:
+    print("STDERR:", result.stderr[:500])
+#+end_src
+
+** Run Composite Task
+
+#+begin_src python :async
+import subprocess
+
+result = subprocess.run(
+    [
+        "uv", "run", "inspect", "eval",
+        "src/lofbench/tasks/composite.py",
+        "--model", "anthropic/claude-sonnet-4-20250514",
+        "-T", "n_groups=10",
+        "-T", "seed=2025",
+    ],
+    capture_output=True,
+    text=True,
+    cwd=".."
+)
+print(result.stdout)
+if result.stderr:
+    print("STDERR:", result.stderr[:500])
+#+end_src
+
+** Test with Noisy Brackets
+
+#+begin_src python :async
+import subprocess
+
+# Test robustness with noisy bracket substitution
+result = subprocess.run(
+    [
+        "uv", "run", "inspect", "eval",
+        "src/lofbench/tasks/single.py",
+        "--model", "anthropic/claude-sonnet-4-20250514",
+        "-T", "n=10",
+        "-T", "renderer=noisy_parens",
+        "-T", "render_seed=42",
+    ],
+    capture_output=True,
+    text=True,
+    cwd=".."
+)
+print(result.stdout)
+if result.stderr:
+    print("STDERR:", result.stderr[:500])
 #+end_src
 
 #+RESULTS:
-#+begin_example
-Results (15 cases):
-  Per-item accuracy: 65.8%
-  All-correct@8:     0/15 (0.0%)
-  Count exact match: 1/15 (6.7%)
-  ✗ comp_001 (openai): 3/8 items, count=5 (tgt 2)
-  ✗ comp_001 (anthropic): 6/8 items, count=2 (tgt 2)
-  ✗ comp_001 (google): 7/8 items, count=3 (tgt 2)
-  ✗ comp_002 (openai): 7/8 items, count=8 (tgt 7)
-  ✗ comp_002 (anthropic): 6/8 items, count=5 (tgt 7)
-  ✗ comp_002 (google): 6/8 items, count=5 (tgt 7)
-  ✗ comp_003 (openai): 5/8 items, count=4 (tgt 5)
-  ✗ comp_003 (anthropic): 5/8 items, count=4 (tgt 5)
-  ✗ comp_003 (google): 5/8 items, count=4 (tgt 5)
-  ✗ comp_004 (openai): 3/8 items, count=4 (tgt 5)
-  ✗ comp_004 (anthropic): 4/8 items, count=1 (tgt 5)
-  ✗ comp_004 (google): 7/8 items, count=4 (tgt 5)
-  ✗ comp_005 (openai): 4/8 items, count=7 (tgt 3)
-  ✗ comp_005 (anthropic): 6/8 items, count=1 (tgt 3)
-  ✗ comp_005 (google): 5/8 items, count=2 (tgt 3)
+: 
+: STDERR: error: Failed to spawn: `inspect`
+:   Caused by: No such file or directory (os error 2)
+
+* View Results Interactively
+
+#+begin_src python
+import subprocess
+
+# Launch the inspect viewer (opens in browser)
+# Note: This will block - run in separate terminal if needed
+print("Run this in a terminal:")
+print("  uv run inspect view")
+#+end_src
+
+#+begin_example bash :eval no
+# Claude Opus 4.5
+uv run inspect eval src/lofbench/tasks/composite.py \
+--model anthropic/claude-opus-4-5-20251101 \
+--reasoning-tokens 10000 -T n_groups=500
+- T renderer=noisy_parens
+
+# GPT-5.2
+uv run inspect eval src/lofbench/tasks/single.py \
+--model openai/gpt-5.2 \
+--reasoning-effort high
+
+# Gemini 3.0 Pro
+uv run inspect eval src/lofbench/tasks/single.py \
+--model google/gemini-3.0-pro \
+--reasoning-tokens 10000
 #+end_example
 
-** Analyze Results
+
+* Analyze Results Programmatically
+
+** Load Logs
 
 #+begin_src python
-with open("sample_results.json", "r") as f:
-    data = json.load(f)
-    results = data.get("results", data) if isinstance(data, dict) else data
+from inspect_ai.log import list_eval_logs, read_eval_log
+from pathlib import Path
 
-if not results:
-    print("No results to analyze")
+log_dir = Path("../logs")
+log_paths = list(list_eval_logs(str(log_dir)))
+
+print(f"Found {len(log_paths)} evaluation logs:")
+for path in log_paths[-5:]:  # Show last 5
+    print(f"  {Path(path).name}")
+#+end_src
+
+** Analyze Single Task Results
+
+#+begin_src python
+from inspect_ai.log import read_eval_log
+from collections import defaultdict
+from pathlib import Path
+
+log_dir = Path("../logs")
+log_paths = list(list_eval_logs(str(log_dir)))
+
+# Find single task logs
+single_logs = [p for p in log_paths if "single" in str(p)]
+
+if not single_logs:
+    print("No single task logs found")
 else:
-    analysis = analyze(results)
-    print("=== Results by Model ===")
-    for model, stats in analysis["by_model"].items():
-        print(f"{model} (n={stats['total']}):")
-        print(f"  Accuracy:      {stats['accuracy']*100:.1f}% ({stats['correct']}/{stats['total']})")
-        if "all_correct_rate" in stats:  # Composite metrics
-            print(f"  All-correct:   {stats['all_correct_rate']*100:.1f}%")
-            print(f"  Count match:   {stats['count_match_rate']*100:.1f}%")
+    # Analyze most recent
+    log = read_eval_log(single_logs[-1])
+    print(f"=== {log.eval.task} ===")
+    print(f"Model: {log.eval.model}")
+    print(f"Samples: {len(log.samples)}")
 
-    # Cost summary
-    print("\n=== Cost by Model ===")
-    from collections import defaultdict
-    costs = defaultdict(float)
-    for r in results:
-        costs[r["metadata"]["model"]] += r["metadata"]["cost"]["total_cost"]
-    total = sum(costs.values())
-    for model, cost in sorted(costs.items()):
-        print(f"  {model}: ${cost:.4f}")
-    print(f"  TOTAL: ${total:.4f}")
+    # Accuracy
+    correct = sum(1 for s in log.samples if s.scores and s.scores[0].value == "C")
+    total = len(log.samples)
+    print(f"Accuracy: {100*correct/total:.1f}% ({correct}/{total})")
+
+    # By difficulty
+    by_diff = defaultdict(lambda: {"correct": 0, "total": 0})
+    for s in log.samples:
+        diff = s.metadata.get("difficulty", "unknown")
+        by_diff[diff]["total"] += 1
+        if s.scores and s.scores[0].value == "C":
+            by_diff[diff]["correct"] += 1
+
+    print("\nBy Difficulty:")
+    for diff in sorted(by_diff.keys()):
+        d = by_diff[diff]
+        acc = 100 * d["correct"] / d["total"] if d["total"] > 0 else 0
+        print(f"  {diff}: {acc:.1f}% ({d['correct']}/{d['total']})")
+#+end_src
+
+#+RESULTS:
+
+** Analyze Composite Task Results
+
+#+begin_src python
+from inspect_ai.log import list_eval_logs, read_eval_log
+from collections import defaultdict, Counter
+from pathlib import Path
+
+log_dir = Path("../logs")
+log_paths = list(list_eval_logs(str(log_dir)))
+
+# Find composite task logs
+composite_logs = [p for p in log_paths if "composite" in str(p)]
+
+if not composite_logs:
+    print("No composite task logs found")
+else:
+    log = read_eval_log(composite_logs[-1])
+    print(f"=== {log.eval.task} ===")
+    print(f"Model: {log.eval.model}")
+    print(f"Samples: {len(log.samples)}")
+
+    # Aggregate metrics
+    per_item_acc = []
+    all_correct = []
+    count_match = []
+
+    for s in log.samples:
+        if s.scores and isinstance(s.scores[0].value, dict):
+            v = s.scores[0].value
+            per_item_acc.append(v.get("per_item_accuracy", 0))
+            all_correct.append(v.get("all_correct", 0))
+            count_match.append(v.get("count_match", 0))
+
+    n = len(per_item_acc)
+    if n > 0:
+        print(f"\nPer-item accuracy: {100*sum(per_item_acc)/n:.1f}%")
+        print(f"All-correct:       {100*sum(all_correct)/n:.1f}% ({int(sum(all_correct))}/{n})")
+        print(f"Count match:       {100*sum(count_match)/n:.1f}%")
+
+    # Target count distribution
+    print("\n=== Target Count Distribution ===")
+    counts = Counter(s.metadata.get("count", -1) for s in log.samples)
+    max_count = max(counts.values()) if counts else 1
+    for k in sorted(counts.keys()):
+        bar = "█" * int(30 * counts[k] / max_count)
+        print(f"  {k}: {bar} {counts[k]}")
+#+end_src
+
+** Full Analysis Report
+
+#+begin_src python
+import sys
+sys.path.insert(0, "..")
+
+from lofbench.analysis import print_report
+
+print_report("../logs")
+#+end_src
+
+* Compare Models
+
+** Run Same Task on Multiple Models
+
+#+begin_src python :async
+import subprocess
+
+models = [
+    "anthropic/claude-sonnet-4-20250514",
+    "openai/gpt-4o",
+    # "google/gemini-2.0-flash",
+]
+
+for model in models:
+    print(f"\n{'='*50}")
+    print(f"Running: {model}")
+    print('='*50)
+
+    result = subprocess.run(
+        [
+            "uv", "run", "inspect", "eval",
+            "src/lofbench/tasks/single.py",
+            "--model", model,
+            "-T", "n=20",
+            "-T", "seed=2025",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=".."
+    )
+    print(result.stdout[-500:] if len(result.stdout) > 500 else result.stdout)
+#+end_src
+
+** Compare Results Across Models
+
+#+begin_src python
+from inspect_ai.log import list_eval_logs, read_eval_log
+from collections import defaultdict
+from pathlib import Path
+
+log_dir = Path("../logs")
+log_paths = list(list_eval_logs(str(log_dir)))
+
+# Group by model
+by_model = defaultdict(list)
+for path in log_paths:
+    try:
+        log = read_eval_log(path)
+        if "single" in (log.eval.task or ""):
+            by_model[log.eval.model].append(log)
+    except:
+        pass
+
+print("=== Single Task Results by Model ===\n")
+for model in sorted(by_model.keys()):
+    logs = by_model[model]
+    # Use most recent log for each model
+    log = logs[-1]
+
+    correct = sum(1 for s in log.samples if s.scores and s.scores[0].value == "C")
+    total = len(log.samples)
+    acc = 100 * correct / total if total > 0 else 0
+
+    print(f"{model}:")
+    print(f"  Accuracy: {acc:.1f}% ({correct}/{total})")
+    print()
+#+end_src
+
+* Dataset Statistics
+
+** Generate and Inspect Test Cases
+
+#+begin_src python
+from lofbench import generate_test_cases, generate_composite_test_cases
+from collections import Counter
+
+# Generate cases
+single_cases = generate_test_cases(n=4000, seed=2025)
+composite_cases = generate_composite_test_cases(n_groups=500, group_size=8, seed=2025)
+
+print(f"Generated {len(single_cases)} single cases")
+print(f"Generated {len(composite_cases)} composite cases")
+
+# Single case stats
+print("\n=== Single Case Statistics ===")
+by_diff = Counter(c["difficulty"] for c in single_cases)
+by_target = Counter(c["target"] for c in single_cases)
+
+print("\nBy Difficulty:")
+for diff in sorted(by_diff.keys()):
+    print(f"  {diff}: {by_diff[diff]}")
+
+print("\nBy Target:")
+for target, count in by_target.items():
+    print(f"  {target:8}: {count} ({100*count/len(single_cases):.1f}%)")
+
+# Composite case stats
+print("\n=== Composite Case Statistics ===")
+count_dist = Counter(c["count"] for c in composite_cases)
+print("\nTarget Count Distribution:")
+for k in sorted(count_dist.keys()):
+    print(f"  {k} marked: {count_dist[k]} groups")
 #+end_src
 
 #+RESULTS:
 #+begin_example
-=== Results by Model ===
-gpt-5.2 (n=5):
-  Accuracy:      55.0% (0/5)
-  All-correct:   0.0%
-  Count match:   0.0%
-claude-opus-4-5-20251101 (n=5):
-  Accuracy:      67.5% (0/5)
-  All-correct:   0.0%
-  Count match:   20.0%
-gemini-3-pro-preview (n=5):
-  Accuracy:      75.0% (0/5)
-  All-correct:   0.0%
-  Count match:   0.0%
+Generated 4000 single cases
+Generated 500 composite cases
 
-=== Cost by Model ===
-  claude-opus-4-5-20251101: $0.0997
-  gemini-3-pro-preview: $0.0630
-  gpt-5.2: $0.0066
-  TOTAL: $0.1693
+=== Single Case Statistics ===
+
+By Difficulty:
+  1. easy: 800
+  2. medium: 800
+  3. hard: 800
+  4. lunatic: 800
+  5. extra: 800
+
+By Target:
+  unmarked: 1876 (46.9%)
+  marked  : 2124 (53.1%)
+
+=== Composite Case Statistics ===
+
+Target Count Distribution:
+  0 marked: 3 groups
+  1 marked: 11 groups
+  2 marked: 35 groups
+  3 marked: 103 groups
+  4 marked: 129 groups
+  5 marked: 128 groups
+  6 marked: 64 groups
+  7 marked: 23 groups
+  8 marked: 4 groups
 #+end_example
 
-* Run Batch Run (batch APIs)
+** Visualize Expression Complexity
 
-** Resume/Check Pending Batches
+#+begin_src python
+from lofbench import generate_test_cases
+from lofbench.core import string_depth
 
-#+begin_src python :async
-from lofbench.eval import resume_batch
-results = resume_batch(
-    composite_cases,
-    CompositeTask,
-    models=CFG.models,
-    batch_log="batch_log.jsonl",
-    poll_interval=30,
-)
-if results:
-    with open("results.json", "w") as f:
-        json.dump(results, f, indent=2)
-    print(f"Saved {len(results)} results")
+cases = generate_test_cases(n=100, seed=2025)
+
+# Depth distribution
+depths = [string_depth(c["input"]) for c in cases]
+depth_counts = {}
+for d in depths:
+    depth_counts[d] = depth_counts.get(d, 0) + 1
+
+print("=== Expression Depth Distribution ===")
+max_count = max(depth_counts.values())
+for depth in sorted(depth_counts.keys()):
+    count = depth_counts[depth]
+    bar = "█" * int(40 * count / max_count)
+    print(f"  depth {depth:2}: {bar} {count}")
+
+# Length distribution
+lengths = [len(c["input"]) for c in cases]
+print(f"\n=== Expression Length ===")
+print(f"  Min: {min(lengths)}")
+print(f"  Max: {max(lengths)}")
+print(f"  Mean: {sum(lengths)/len(lengths):.1f}")
 #+end_src
 
 #+RESULTS:
-: No pending batches, fetching completed results...
-: Fetching results for: ['anthropic', 'google']
-:   anthropic: fetched 500 results
-: Both GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY.
-:   google: fetched 500 results
-: Saved 1000 results
+#+begin_example
+=== Expression Depth Distribution ===
+  depth  2: ████ 2
+  depth  3: ██████████████ 7
+  depth  4: ████████████████████████ 12
+  depth  5: ██████████████████████████████████████ 19
+  depth  6: ████████████████████████████████████████ 20
+  depth  9: ████████████████████████████████████████ 20
+  depth 10: ████████████████████████████████████████ 20
 
-** COMMENT Evaluate
-#+begin_src python :async
-results = run_eval(
-    composite_cases,
-    CompositeTask,
-    providers=CFG.available_providers,
-    models=CFG.models,
-    poll_interval=30,
-)
-with open("results.json", "w") as f:
-    json.dump(results, f, indent=2)
-print(f"Saved {len(results)} results")
-#+end_src
+=== Expression Length ===
+  Min: 6
+  Max: 70
+  Mean: 45.3
+#+end_example
 
-** Analyze Results
+* Renderer Examples
+
+** Compare Canonical vs Noisy Rendering
 
 #+begin_src python
-from lofbench.eval import print_dataset_stats, print_eval_results
+from lofbench.renderers import get_renderer, list_renderers
+import random
+
+print(f"Available renderers: {list_renderers()}")
+
+# Sample expressions
+expressions = ["(())", "()()", "((())())", "(())(())"]
+
+canonical = get_renderer("canonical")
+noisy = get_renderer("noisy_parens")
+
+print("\n=== Rendering Comparison ===")
+rng = random.Random(42)
+for expr in expressions:
+    c_result = canonical.render(expr)
+    n_result = noisy.render(expr, rng)
+    print(f"  {expr:15} → canonical: {c_result.rendered:15} noisy: {n_result.rendered}")
+#+end_src
+
+#+RESULTS:
+: Available renderers: ['canonical', 'noisy_parens']
+: 
+: === Rendering Comparison ===
+:   (())            → canonical: (())            noisy: [()]
+:   ()()            → canonical: ()()            noisy: ⟨⟩⟨⟩
+:   ((())())        → canonical: ((())())        noisy: <<{}><>>
+:   (())(())        → canonical: (())(())        noisy: [「」][「」]
+
+** Mismatched Bracket Mode
+
+#+begin_src python
+from lofbench.renderers import NoisyParensRenderer, NoisyParensConfig
+import random
+
+config = NoisyParensConfig(mismatched=True)
+renderer = NoisyParensRenderer(config)
+
+expressions = ["(())", "()()", "((())())"]
+
+print("=== Mismatched Bracket Mode ===")
+print("(Opening and closing brackets chosen independently)\n")
+
+rng = random.Random(123)
+for expr in expressions:
+    result = renderer.render(expr, rng)
+    print(f"  {expr:15} → {result.rendered}")
+#+end_src
+
+#+RESULTS:
+: === Mismatched Bracket Mode ===
+: (Opening and closing brackets chosen independently)
+: 
+:   (())            → (⟨]〉
+:   ()()            → ⟨](〉
+:   ((())())        → 「「〈〉){}〉
+
+* Export Results
+
+** Export to CSV
+
+#+begin_src python
+from inspect_ai.log import list_eval_logs, read_eval_log
+from pathlib import Path
+import csv
+
+log_dir = Path("../logs")
+log_paths = list(list_eval_logs(str(log_dir)))
+
+# Export single task results
+rows = []
+for path in log_paths:
+    try:
+        log = read_eval_log(path)
+        if "single" not in (log.eval.task or ""):
+            continue
+
+        for s in log.samples:
+            rows.append({
+                "model": log.eval.model,
+                "task": log.eval.task,
+                "sample_id": s.id,
+                "target": s.target,
+                "correct": s.scores[0].value == "C" if s.scores else None,
+                "answer": s.scores[0].answer if s.scores else None,
+                "difficulty": s.metadata.get("difficulty"),
+                "depth": s.metadata.get("depth"),
+                "steps": s.metadata.get("steps"),
+            })
+    except Exception as e:
+        print(f"Error reading {path}: {e}")
+
+if rows:
+    with open("single_results.csv", "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"Exported {len(rows)} rows to single_results.csv")
+else:
+    print("No results to export")
+#+end_src
+
+** Export to JSON
+
+#+begin_src python
+from inspect_ai.log import list_eval_logs, read_eval_log
+from pathlib import Path
 import json
 
-with open("results.json", "r") as f:
-    data = json.load(f)
-    results = data.get("results", data) if isinstance(data, dict) else data
+log_dir = Path("../logs")
+log_paths = list(list_eval_logs(str(log_dir)))
 
-print_dataset_stats(composite_cases)
-print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-print_eval_results(results)
+# Export all results with full details
+all_results = []
+for path in log_paths[-5:]:  # Last 5 logs
+    try:
+        log = read_eval_log(path)
+        all_results.append({
+            "task": log.eval.task,
+            "model": log.eval.model,
+            "status": log.status,
+            "samples": [
+                {
+                    "id": s.id,
+                    "target": s.target,
+                    "score": s.scores[0].value if s.scores else None,
+                    "answer": s.scores[0].answer if s.scores else None,
+                    "metadata": s.metadata,
+                }
+                for s in log.samples
+            ]
+        })
+    except Exception as e:
+        print(f"Error: {e}")
+
+with open("eval_results.json", "w") as f:
+    json.dump(all_results, f, indent=2, default=str)
+print(f"Exported {len(all_results)} logs to eval_results.json")
 #+end_src
-
-#+RESULTS:
-#+begin_example
-=== Target Count Distribution ===
-  0:  1
-  1: ███ 12
-  2: ████████████ 43
-  3: ████████████████████████████ 99
-  4: ████████████████████████████████████████ 141
-  5: █████████████████████████████████ 118
-  6: ██████████████████ 64
-  7: █████ 20
-  8:  2
-
-=== Random Baselines ===
-  Per-item:       50.0% (coin flip)
-  All-correct:    0.39% (8 coin flips)
-  Count-match:    20.0% (P(random guess correct) = Σ P(k)²)
-  Count MAE:      1.54 (E[|guess-true|], guess ~ P. Mean Absolute Error)
-
-=== Average Steps per Difficulty ===
-  1. easy     : ~3.3 steps
-  2. medium   : ~8.6 steps
-  3. hard     : ~12.7 steps
-  4. lunatic  : ~14.7 steps
-  5. extra    : ~18.1 steps
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-=== Results by Model ===
-claude-opus-4-5-20251101 (n=500):
-  Per-item:      62.8%
-  All-correct:   4.0% (20/500)
-  Count match:   14.6%
-  Count MAE:     1.83
-gemini-3-pro-preview (n=500):
-  Per-item:      71.1%
-  All-correct:   16.6% (83/500)
-  Count match:   32.4%
-  Count MAE:     1.15
-
-=== Accuracy by Difficulty ===
-claude-opus-4-5-20251101:
-  1. easy       76.4% per-item   14.0% all-correct  (n=100)
-  2. medium     65.1% per-item    1.0% all-correct  (n=100)
-  3. hard       54.0% per-item    2.0% all-correct  (n=100)
-  4. lunatic    58.5% per-item    2.0% all-correct  (n=100)
-  5. extra      60.0% per-item    1.0% all-correct  (n=100)
-gemini-3-pro-preview:
-  1. easy       91.1% per-item   56.0% all-correct  (n=100)
-  2. medium     79.6% per-item   18.0% all-correct  (n=100)
-  3. hard       55.4% per-item    0.0% all-correct  (n=100)
-  4. lunatic    64.0% per-item    7.0% all-correct  (n=100)
-  5. extra      65.5% per-item    2.0% all-correct  (n=100)
-
-=== Accuracy by Target ===
-claude-opus-4-5-20251101:
-  marked      : 57.4% (1199/2089)
-  unmarked    : 68.7% (1313/1911)
-gemini-3-pro-preview:
-  marked      : 70.8% (1479/2089)
-  unmarked    : 71.5% (1366/1911)
-#+end_example

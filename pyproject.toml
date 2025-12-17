@@ -5,7 +5,12 @@ description = "Laws of Form benchmark toolkit"
 readme = {file = "README.org", content-type = "text/plain"}
 license = "MIT"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "anthropic>=0.75.0",
+    "google-genai>=1.55.0",
+    "inspect-ai>=0.3.154",
+    "openai>=2.11.0",
+]
 
 [project.optional-dependencies]
 eval = [
@@ -35,3 +40,8 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
