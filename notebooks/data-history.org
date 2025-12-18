@@ -167,3 +167,96 @@ Metrics:
   All-correct:          10.0% (3/30)
   Structure accuracy:   22.5%
 #+end_example
+
+* v1.1
+
+
+#+begin_example
+Gemini 2.5 Flash Dialect/Thinking Sweep:
+================================================================================
+                  model        dialect  thinking_tokens  per_item  all_correct  structure
+google/gemini-2.5-flash noisy-mismatch             2048      0.01         0.01       0.00
+google/gemini-2.5-flash noisy-mismatch              512      0.03         0.03       0.00
+google/gemini-2.5-flash noisy-mismatch            24576      0.04         0.04       0.00
+google/gemini-2.5-flash noisy-mismatch             8192      0.03         0.03       0.00
+google/gemini-2.5-flash noisy-mismatch                0      0.07         0.07       0.00
+google/gemini-2.5-flash noisy-balanced              512      0.02         0.02       0.00
+google/gemini-2.5-flash noisy-balanced             8192      0.06         0.06       0.00
+google/gemini-2.5-flash noisy-balanced             2048      0.07         0.07       0.00
+google/gemini-2.5-flash noisy-balanced            24576      0.06         0.06       0.01
+google/gemini-2.5-flash noisy-balanced                0      0.04         0.04       0.00
+google/gemini-2.5-flash      canonical            24576      0.10         0.10       0.13
+google/gemini-2.5-flash      canonical             8192      0.12         0.12       0.14
+google/gemini-2.5-flash      canonical             2048      0.07         0.07       0.13
+google/gemini-2.5-flash      canonical              512      0.02         0.02       0.14
+google/gemini-2.5-flash      canonical                0      0.04         0.04       0.14
+#+end_example
+
+
+#+begin_example
+
+=== Summary by Dialect ===
+               per_item             structure      
+                   mean   max   min      mean   max
+dialect                                            
+canonical         0.070  0.12  0.02     0.136  0.14
+noisy-balanced    0.050  0.07  0.02     0.002  0.01
+noisy-mismatch    0.036  0.07  0.01     0.000  0.00
+
+=== Key Finding ===
+Canonical notation: 7-12% accuracy (best)
+Noisy-balanced: 2-7% accuracy
+Noisy-mismatch: 1-7% accuracy
+
+Structure accuracy near 0% for noisy dialects shows parsing failure.
+More thinking tokens doesn't help - Flash simply can't do this task.
+#+end_example
+
+
+#+RESULTS:
+: === Opus 4.5 Notation Comparison (10k thinking) ===
+:       notation  per_item  all_correct structure  thinking
+: noisy-mismatch       0.4          0.4      None     10000
+: noisy-balanced       1.0          1.0      None     10000
+:      canonical       0.6          0.6      None     10000
+
+
+#+RESULTS:
+: === Model Comparison ===
+:          model        dialect  thinking  n_samples  per_item  all_correct  structure
+: Opus 4.5 (64k) noisy-mismatch     63999       1000  0.944404     0.854501   0.209367
+:        GPT 5.2 noisy-balanced     10000         10  0.800000     0.800000   0.600000
+:   Gemini 3 Pro noisy-mismatch         0         30  0.733333     0.733333   0.066667
+:     Sonnet 4.5      canonical     10000         10  0.000000     0.000000   0.100000
+
+
+#+RESULTS:
+#+begin_example
+
+
+=== Opus 4.5 Detailed Analysis ===
+Total samples: 2055
+Unique sample IDs: 991
+
+K=1 Per-item accuracy: 94.4%
+
+=== By Difficulty ===
+metadata_difficulty     mean      std  count
+            1. easy 0.992771 0.045400    415
+          2. medium 0.973236 0.086681    411
+            3. hard 0.947619 0.146336    420
+         4. lunatic 0.922264 0.186904    402
+           5. extra 0.884521 0.218861    407
+#+end_example
+
+
+
+#+RESULTS:
+: === Summary Table for Blog ===
+:            Model        Dialect Per-Item (max) All-Correct (max)
+: Gemini 2.5 Flash      canonical          12.0%             12.0%
+: Gemini 2.5 Flash noisy-balanced           7.0%              7.0%
+: Gemini 2.5 Flash noisy-mismatch           7.0%              7.0%
+:         Opus 4.5 noisy-mismatch          40.0%             40.0%
+:         Opus 4.5 noisy-balanced         100.0%            100.0%
+:         Opus 4.5      canonical          60.0%             60.0%
