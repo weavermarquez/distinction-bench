@@ -1,39 +1,30 @@
-* Do you ever wonder if AI sees these as the same thing?
+* Can you trust AI?
 
-#+begin_example
-What is two plus two?
-#+end_example
-
-🆚
-
-#+begin_example
-Please answer: 2 + 2
-#+end_example
-
-🔍
+: What is two plus two?
+                                                          🆚
+: Please answer: 2 + 2
 
 
 
 
-* Why DistinctionBench?
+* Distinction Bench: testing perception
+A simple idea: test *simple rules* in *many different representations*.
 
-We want a core reasoning capability.
-There might be something fundamentally wrong with the core reasoning capability with different representations of the same data.
-
-
-
-
-
-* Distinction Bench:
-
-A diagnostic eval for *representation-invariant execution* on a minimal ruleset.
-
-* End
-
-https://valeriekim.ca
+- /Abstraction/ :: the act of ignoring *irrelevant details* and *focusing on the relevant parts.*
+  
+  Without this capability, AI is closer to *pattern matching* than *reasoning*.
 
 
-* Experiment Samples :ARCHIVE:
+* Why Distinction Bench?
+  We want our AIs *to reason*, not just *pretend*.
+
+  Most benchmarks are about translating between similar formats, or increasingly /tangled/ rules.
+
+  Distinction Bench can expose and address fundamental weaknesses in reasoning.
+  https://valeriekim.ca
+
+
+* COMMENT Experiment Samples :ARCHIVE:
 
 ** Parens
 
@@ -81,7 +72,7 @@ https://valeriekim.ca
 :   ((())())        → 〈〈(}}〈」〉
 
 
-* Data
+* COMMENT Data :ARCHIVE:
 
 ** Summary: Strange Performance Differences??
 
@@ -139,5 +130,9 @@ https://valeriekim.ca
 :     Sonnet 4.5      canonical     10000         10  0.000000     0.000000   0.100000
 
 
-* Failure Examples
+* COMMENT Failure Examples :ARCHIVE:
+
+* COMMENT Scratch :ARCHIVE:
+
+A diagnostic eval for *representation-invariant execution* on a minimal ruleset.
 

@@ -61,7 +61,8 @@ def load_curated_logs(
 def get_log_metadata(log: EvalLog) -> dict[str, Any]:
     """Extract key metadata from an eval log.
 
-    Returns dict with: model, renderer, mismatched, thinking_tokens, n_samples, epochs
+    Returns dict with: model, renderer, mismatched, dialect, thinking_tokens,
+                       reasoning_effort, n_samples, epochs
     """
     task_args = log.eval.task_args or {}
     renderer = task_args.get('renderer', 'parens')
@@ -72,6 +73,18 @@ def get_log_metadata(log: EvalLog) -> dict[str, Any]:
     thinking = gen_config.reasoning_tokens if gen_config else 0
     if thinking is None:
         thinking = 0  # None means reasoning disabled
+
+    # Extract reasoning_effort (used by Gemini 3 Flash)
+    # For gemini-3-flash: minimal/low -> 'low', medium -> 'high'
+    raw_effort = getattr(gen_config, 'reasoning_effort', None) if gen_config else None
+    reasoning_effort = None
+    if 'gemini-3-flash' in log.eval.model:
+        if raw_effort in ('minimal', 'low'):
+            reasoning_effort = 'low'
+        elif raw_effort == 'medium':
+            reasoning_effort = 'high'
+        else:
+            reasoning_effort = raw_effort
 
     # Determine dialect name
     if renderer == 'parens':
@@ -89,6 +102,7 @@ def get_log_metadata(log: EvalLog) -> dict[str, Any]:
         'mismatched': mismatched,
         'dialect': dialect,
         'thinking_tokens': thinking,
+        'reasoning_effort': reasoning_effort,
         'n_samples': log.eval.dataset.samples if log.eval.dataset else None,
         'epochs': log.eval.config.epochs if log.eval.config else 1,
     }

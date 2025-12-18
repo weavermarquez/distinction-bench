@@ -1,0 +1,301 @@
+#+title: Demo Charts
+#+property: header-args:python :session demo :results output :python "../.venv/bin/python"
+
+| data      | sonnet   | opus |
+| canonical | r0 n=100 |      |
+
+* Setup
+
+#+begin_src python
+import os
+import sys
+from pathlib import Path
+
+nb_dir = Path.cwd()
+project_root = nb_dir.parent
+os.chdir(nb_dir)
+sys.path.insert(0, str(project_root / "src"))
+
+figures_dir = nb_dir / "figures"
+figures_dir.mkdir(exist_ok=True)
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+
+from inspect_ai.log import list_eval_logs, read_eval_log
+from lofbench.analysis import get_log_metadata, get_log_results
+
+log_dir = project_root / "logs"
+print(f"Setup complete. Figures dir: {figures_dir}")
+#+end_src
+
+* Helper: Extract Per-Sample Accuracy
+
+#+begin_src python
+def extract_sample_accuracies(log):
+    """Extract per-sample accuracy, flattening epochs to mean."""
+    sample_accs = {}
+    for sample in log.samples or []:
+        sid = sample.id
+        if sample.scores:
+            score = list(sample.scores.values())[0]
+            if isinstance(score.value, dict):
+                acc = score.value.get('per_item_accuracy', 0)
+                if sid not in sample_accs:
+                    sample_accs[sid] = []
+                sample_accs[sid].append(acc)
+
+    # Flatten: mean across epochs per sample
+    return [np.mean(accs) for accs in sample_accs.values()]
+
+print("Helper defined.")
+#+end_src
+
+* Chart 1: Gemini Reasoning Budget Comparison
+
+#+begin_src python
+# Collect Gemini 2.5 Flash data (canonical dialect only for clarity)
+g25_data = []
+all_paths = list(list_eval_logs(str(log_dir)))
+
+for path in all_paths:
+    log = read_eval_log(path, header_only=True)
+    if 'gemini-2.5-flash' not in log.eval.model:
+        continue
+    meta = get_log_metadata(log)
+    if meta['dialect'] != 'canonical':
+        continue
+
+    # Load full log for sample-level data
+    full_log = read_eval_log(path, header_only=False)
+    accs = extract_sample_accuracies(full_log)
+
+    g25_data.append({
+        'thinking_tokens': meta['thinking_tokens'],
+        'mean_acc': np.mean(accs),
+        'std_acc': np.std(accs),
+    })
+
+g25_df = pd.DataFrame(g25_data).sort_values('thinking_tokens')
+print("Gemini 2.5 Flash (canonical):")
+print(g25_df)
+#+end_src
+
+#+begin_src python
+# Collect Gemini 3 Flash Preview data (canonical dialect)
+g3f_data = []
+
+for path in all_paths:
+    log = read_eval_log(path, header_only=True)
+    if 'gemini-3-flash' not in log.eval.model:
+        continue
+    meta = get_log_metadata(log)
+    if meta['dialect'] != 'canonical':
+        continue
+
+    full_log = read_eval_log(path, header_only=False)
+    accs = extract_sample_accuracies(full_log)
+
+    # Map reasoning_effort to approximate tokens
+    effort = meta.get('reasoning_effort', 'low')
+    approx_tokens = 2000 if effort == 'low' else 40000
+
+    g3f_data.append({
+        'reasoning_effort': effort,
+        'approx_tokens': approx_tokens,
+        'mean_acc': np.mean(accs),
+        'std_acc': np.std(accs),
+    })
+
+g3f_df = pd.DataFrame(g3f_data)
+# Average across runs with same reasoning level
+g3f_summary = g3f_df.groupby(['reasoning_effort', 'approx_tokens']).agg({
+    'mean_acc': 'mean',
+    'std_acc': 'mean',
+}).reset_index()
+print("\nGemini 3 Flash Preview (canonical):")
+print(g3f_summary)
+#+end_src
+
+#+begin_src python
+# Collect Gemini 3 Pro data
+g3p_data = []
+
+for path in all_paths:
+    log = read_eval_log(path, header_only=True)
+    if 'gemini-3' not in log.eval.model or 'flash' in log.eval.model:
+        continue
+    if 'pro' not in log.eval.model.lower():
+        continue
+
+    full_log = read_eval_log(path, header_only=False)
+    accs = extract_sample_accuracies(full_log)
+    meta = get_log_metadata(log)
+
+    g3p_data.append({
+        'model': log.eval.model,
+        'dialect': meta['dialect'],
+        'mean_acc': np.mean(accs),
+        'std_acc': np.std(accs),
+        'n_samples': len(accs),
+    })
+
+print("\nGemini 3 Pro:")
+for d in g3p_data:
+    print(f"  {d['model']} ({d['dialect']}): {d['mean_acc']:.1%} ± {d['std_acc']:.1%} (n={d['n_samples']})")
+#+end_src
+
+#+begin_src python
+# Plot Chart 1: Reasoning Budget Comparison
+fig, ax = plt.subplots(figsize=(10, 6))
+
+# Gemini 2.5 Flash line
+if len(g25_df) > 0:
+    x_25 = g25_df['thinking_tokens'].replace(0, 100).values  # Replace 0 with 100 for log scale
+    ax.errorbar(x_25, g25_df['mean_acc'], yerr=g25_df['std_acc'],
+                marker='o', capsize=4, label='Gemini 2.5 Flash', linewidth=2, markersize=8)
+
+# Gemini 3 Flash points
+if len(g3f_summary) > 0:
+    ax.errorbar(g3f_summary['approx_tokens'], g3f_summary['mean_acc'],
+                yerr=g3f_summary['std_acc'], marker='s', capsize=4,
+                label='Gemini 3 Flash Preview', linewidth=2, markersize=10, linestyle='--')
+
+# Gemini 3 Pro point (if canonical exists)
+for d in g3p_data:
+    if d['dialect'] == 'canonical':
+        ax.errorbar([100], [d['mean_acc']], yerr=[d['std_acc']],
+                    marker='D', capsize=4, label=f"Gemini 3 Pro", markersize=12)
+        break
+
+ax.set_xscale('log')
+ax.set_xlabel('Reasoning Budget (tokens)', fontsize=12)
+ax.set_ylabel('Per-Item Accuracy', fontsize=12)
+ax.set_title('Gemini Models: Reasoning Budget vs Accuracy (Canonical Dialect)', fontsize=14)
+ax.legend(loc='lower right', fontsize=11)
+ax.set_ylim(0, 0.5)
+ax.grid(True, alpha=0.3)
+
+# Custom x-ticks
+ax.set_xticks([100, 500, 2000, 8000, 25000, 40000])
+ax.set_xticklabels(['0', '512', '2k', '8k', '25k', '40k'])
+
+plt.tight_layout()
+plt.savefig('figures/gemini_reasoning_comparison.png', dpi=150, bbox_inches='tight')
+print("Saved: figures/gemini_reasoning_comparison.png")
+plt.close()
+#+end_src
+
+* Chart 2: Big Tent Model Comparison
+
+#+begin_src python
+# Collect all composite task results
+all_results = []
+
+for path in all_paths:
+    if 'composite' not in str(path):
+        continue
+
+    log = read_eval_log(path, header_only=True)
+    meta = get_log_metadata(log)
+
+    # Load full for sample-level
+    full_log = read_eval_log(path, header_only=False)
+    accs = extract_sample_accuracies(full_log)
+
+    if len(accs) == 0:
+        continue
+
+    # Create readable model name
+    model_raw = log.eval.model
+    if 'opus-4-5' in model_raw:
+        model_name = 'Opus 4.5'
+    elif 'sonnet-4-5' in model_raw:
+        model_name = 'Sonnet 4.5'
+    elif 'sonnet-4' in model_raw:
+        model_name = 'Sonnet 4'
+    elif 'gpt-5.2' in model_raw.lower() or 'o3' in model_raw.lower():
+        model_name = 'GPT 5.2'
+    elif 'gemini-2.5-flash' in model_raw:
+        model_name = 'Gemini 2.5 Flash'
+    elif 'gemini-3-flash' in model_raw:
+        effort = meta.get('reasoning_effort', 'low')
+        model_name = f'Gemini 3 Flash ({effort})'
+    elif 'gemini-3' in model_raw and 'pro' in model_raw.lower():
+        model_name = 'Gemini 3 Pro'
+    else:
+        model_name = model_raw.split('/')[-1][:20]
+
+    all_results.append({
+        'model': model_name,
+        'dialect': meta['dialect'],
+        'mean_acc': np.mean(accs),
+        'std_acc': np.std(accs),
+        'n_samples': len(accs),
+    })
+
+results_df = pd.DataFrame(all_results)
+print(f"Collected {len(results_df)} runs across models")
+print(results_df.groupby('model').size())
+#+end_src
+
+#+begin_src python
+# Aggregate: best config per model (max mean_acc)
+best_per_model = results_df.loc[results_df.groupby('model')['mean_acc'].idxmax()]
+best_per_model = best_per_model.sort_values('mean_acc', ascending=True)
+
+print("\nBest config per model:")
+print(best_per_model[['model', 'dialect', 'mean_acc', 'std_acc', 'n_samples']].to_string(index=False))
+#+end_src
+
+#+begin_src python
+# Plot Chart 2: Big Tent Bar Chart
+fig, ax = plt.subplots(figsize=(12, 7))
+
+models = best_per_model['model'].tolist()
+means = best_per_model['mean_acc'].tolist()
+stds = best_per_model['std_acc'].tolist()
+dialects = best_per_model['dialect'].tolist()
+
+# Color by model family
+colors = []
+for m in models:
+    if 'Gemini 2.5' in m:
+        colors.append('#4285F4')  # Google blue
+    elif 'Gemini 3' in m:
+        colors.append('#34A853')  # Google green
+    elif 'Opus' in m or 'Sonnet' in m:
+        colors.append('#D4A574')  # Anthropic tan
+    elif 'GPT' in m:
+        colors.append('#10A37F')  # OpenAI green
+    else:
+        colors.append('#888888')
+
+bars = ax.barh(models, means, xerr=stds, capsize=4, color=colors, alpha=0.8)
+
+# Add value labels
+for i, (mean, std) in enumerate(zip(means, stds)):
+    ax.text(mean + std + 0.02, i, f'{mean:.1%}', va='center', fontsize=10)
+
+ax.set_xlabel('Per-Item Accuracy (mean ± std across samples)', fontsize=12)
+ax.set_title('LoF Composite Task: Model Comparison (Best Config)', fontsize=14)
+ax.set_xlim(0, 1.1)
+ax.grid(True, alpha=0.3, axis='x')
+
+plt.tight_layout()
+plt.savefig('figures/model_comparison_bigtent.png', dpi=150, bbox_inches='tight')
+print("Saved: figures/model_comparison_bigtent.png")
+plt.close()
+#+end_src
+
+* Summary
+
+#+begin_src python
+print("=== Demo Charts Generated ===")
+print(f"1. figures/gemini_reasoning_comparison.png")
+print(f"2. figures/model_comparison_bigtent.png")
+print("\nReady for demo!")
+#+end_src
