@@ -67,6 +67,9 @@ In these examples, even if the final answer was correct, the /reasoning is incor
 * V1.1
 
 http://127.0.0.1:7575/#/logs/2025-12-16T00-26-03%2B00-00_composite-lof-task_cdqvjYE5bHa9MzbbSoLB2d.eval/samples/sample/comp_009/1/
+
+Sonnet 4.5 made these mistakes:
+
 #+begin_quote
 E4: ((()(())))
 Parsing the structure: ( ( () (()) ) )
@@ -91,4 +94,7 @@ Left side becomes: ((()(nothing))) = ((()))
 Overall: nothing adjacent to nothing = nothing
 
 #+end_quote
+
+Ground truth of both these examples is marked, not unmarked.
+In both examples, Sonnet made the mistake of /jumping ahead/ from =( ( ( ) ) )=, a triple nested marking, and applying the law of crossing to eliminate it entirely, instead of only the inside portion. 
 

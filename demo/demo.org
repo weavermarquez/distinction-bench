@@ -1,13 +1,20 @@
-* Can you trust AI?
+* Can we trust AI to be consistent?
 
-: What is two plus two?
+1. What is two plus two?
                                                           🆚
-: Please answer: 2 + 2
+2. Please answer: 2 + 2
 
 
 
+* Distinction Bench: isolating abstraction
+Most evals vary the =rules=.
+DistinctionBench varies the =representation=, with constant rules.
 
-* Distinction Bench: testing perception
+goal: does the model keep the SAME internal computation
+when only the encoding changes?
+
+  Most benchmarks are about translating between similar formats, or increasingly /tangled/ rules.
+  
 A simple idea: test *simple rules* in *many different representations*.
 
 - /Abstraction/ :: the act of ignoring *irrelevant details* and *focusing on the relevant parts.*
@@ -16,12 +23,11 @@ A simple idea: test *simple rules* in *many different representations*.
 
 
 * Why Distinction Bench?
-  We want our AIs *to reason*, not just *pretend*.
-
-  Most benchmarks are about translating between similar formats, or increasingly /tangled/ rules.
-
-  Distinction Bench can expose and address fundamental weaknesses in reasoning.
-  https://valeriekim.ca
+  We want our AIs *to be capable of reason*, not just to *pretend*.
+  
+  By representing the /simplest/ system in many ways, Distinction Bench helps expose and address fundamental weaknesses in abstraction.
+  
+  Blog/Report to be published at https://valeriekim.ca
 
 
 * COMMENT Experiment Samples :ARCHIVE:
@@ -130,7 +136,7 @@ A simple idea: test *simple rules* in *many different representations*.
 :     Sonnet 4.5      canonical     10000         10  0.000000     0.000000   0.100000
 
 
-* COMMENT Failure Examples :ARCHIVE:
+* COMMENT Failure Examples
 
 * COMMENT Scratch :ARCHIVE:
 
